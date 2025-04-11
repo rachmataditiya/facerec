@@ -332,28 +332,25 @@ void MainWindow::onStartButtonClicked()
 
         // Set RTSP pipeline parameters
         videoCapture = new cv::VideoCapture();
-        
-        // Build RTSP URL with parameters
-        QString rtspURL = url;
-        if (!url.contains("rtsp_transport")) {
-            rtspURL += (url.contains("?") ? "&" : "?") + QString("rtsp_transport=tcp");
-        }
-        if (!url.contains("buffer_size")) {
-            rtspURL += "&buffer_size=131072";
-        }
-        if (!url.contains("stimeout")) {
-            rtspURL += "&stimeout=5000000";
-        }
+
+        // Format URL with explicit protocol and parameters
+        QString rtspURL = QString("ffmpeg:%1").arg(url);
+        rtspURL += "?rtsp_transport=tcp";  // Force TCP
+        rtspURL += "&max_delay=1000000";   // 1 second max delay
+        rtspURL += "&buffer_size=1024000"; // Larger buffer
+        rtspURL += "&stimeout=5000000";    // 5 second timeout
+        rtspURL += "&drop_frame_if_full=1"; // Drop frames if buffer full
+        rtspURL += "&reorder_queue_size=0"; // Disable reordering
         
         qDebug() << "URL dengan parameter RTSP:" << rtspURL;
 
-        // Try to open with FFMPEG backend
+        // Try to open with explicit FFMPEG backend
         if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
-            qDebug() << "Gagal membuka dengan FFMPEG, mencoba dengan backend default";
+            qDebug() << "Gagal membuka dengan FFMPEG, mencoba dengan URL langsung";
             
-            // Try with default backend
+            // Try direct URL as fallback
             if (!videoCapture->open(url.toStdString())) {
-                qDebug() << "Gagal membuka dengan backend default";
+                qDebug() << "Gagal membuka dengan URL langsung";
                 QMessageBox::critical(this, "Error", 
                     "Tidak dapat membuka stream RTSP: " + url + 
                     "\nPastikan:\n" +
@@ -361,7 +358,7 @@ void MainWindow::onStartButtonClicked()
                     "2. Server aktif\n" +
                     "3. Kredensial benar\n" +
                     "4. Port tidak diblokir firewall\n" +
-                    "5. OpenCV dikompilasi dengan dukungan FFMPEG");
+                    "5. Coba buka di VLC untuk verifikasi");
                 delete videoCapture;
                 videoCapture = nullptr;
                 return;
@@ -369,9 +366,14 @@ void MainWindow::onStartButtonClicked()
         }
 
         // Configure stream parameters
-        videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);  // Minimize latency
-        videoCapture->set(cv::CAP_PROP_FPS, 30);        // Request 30 FPS
-        videoCapture->set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('H', '2', '6', '4')); // Force H264
+        videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
+        videoCapture->set(cv::CAP_PROP_FPS, 30);
+        
+        // Try to force lower latency
+        videoCapture->set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('H', '2', '6', '4'));
+        videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
+        videoCapture->set(cv::CAP_PROP_FRAME_WIDTH, 1280);
+        videoCapture->set(cv::CAP_PROP_FRAME_HEIGHT, 720);
     }
 
     if (!videoCapture->isOpened()) {
