@@ -1,0 +1,9 @@
+{
+    "modelPath": "/Users/rachmataditiya/.inspireface/models",
+    "streams": [
+        {
+            "name": "Parkiran Depan",
+            "url": "rstp://cam.arkana.app:5003"
+        }
+    ]
+}

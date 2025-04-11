@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>FaceRec</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.example.facerec</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>FaceRec</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2024. All rights reserved.</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSCameraUsageDescription</key>
+    <string>This app needs access to the camera for face detection and recognition.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>This app needs access to the microphone for audio recording.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>This app needs access to the documents folder to save settings and models.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>This app needs access to the downloads folder to save downloaded models.</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>This app needs access to the local network to connect to RTSP streams.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_rtsp._tcp</string>
+    </array>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <true/>
+    </dict>
+</dict>
+</plist> 

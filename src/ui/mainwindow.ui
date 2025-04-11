@@ -1,0 +1,321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>1280</width>
+    <height>800</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>800</width>
+    <height>600</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Face Detection System</string>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="spacing">
+     <number>12</number>
+    </property>
+    <property name="leftMargin">
+     <number>12</number>
+    </property>
+    <property name="rightMargin">
+     <number>12</number>
+    </property>
+    <property name="topMargin">
+     <number>12</number>
+    </property>
+    <property name="bottomMargin">
+     <number>12</number>
+    </property>
+    <item>
+     <widget class="QTabWidget" name="tabWidget">
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="videoTab">
+       <attribute name="title">
+        <string>Video</string>
+       </attribute>
+       <layout class="QHBoxLayout" name="videoTabLayout">
+        <property name="spacing">
+         <number>12</number>
+        </property>
+        <item>
+         <layout class="QVBoxLayout" name="settingsLayout">
+          <property name="spacing">
+           <number>8</number>
+          </property>
+          <item>
+           <widget class="QGroupBox" name="modelGroup">
+            <property name="title">
+             <string>Model Settings</string>
+            </property>
+            <layout class="QVBoxLayout" name="modelLayout">
+             <item>
+              <widget class="QLabel" name="modelPathLabel">
+               <property name="text">
+                <string>Model Path:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="modelPathLayout">
+               <item>
+                <widget class="QLineEdit" name="modelPathEdit"/>
+               </item>
+               <item>
+                <widget class="QPushButton" name="modelPathButton">
+                 <property name="text">
+                  <string>Browse...</string>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+             <item>
+              <widget class="QListWidget" name="modelListWidget"/>
+             </item>
+             <item>
+              <widget class="QPushButton" name="loadModelButton">
+               <property name="text">
+                <string>Load Selected Model</string>
+               </property>
+               <property name="enabled">
+                <bool>false</bool>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </widget>
+          </item>
+          <item>
+           <widget class="QGroupBox" name="controlGroup">
+            <property name="title">
+             <string>Control</string>
+            </property>
+            <layout class="QVBoxLayout" name="controlLayout">
+             <item>
+              <widget class="QLabel" name="sourceLabel">
+               <property name="text">
+                <string>Source:</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="sourceComboBox">
+               <item>
+                <property name="text">
+                 <string>Camera</string>
+                </property>
+               </item>
+               <item>
+                <property name="text">
+                 <string>RTSP Stream</string>
+                </property>
+               </item>
+              </widget>
+             </item>
+             <item>
+              <widget class="QComboBox" name="streamComboBox"/>
+             </item>
+             <item>
+              <layout class="QHBoxLayout" name="controlButtonLayout">
+               <item>
+                <widget class="QPushButton" name="startButton">
+                 <property name="text">
+                  <string>Start</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="stopButton">
+                 <property name="text">
+                  <string>Stop</string>
+                 </property>
+                 <property name="enabled">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
+              </layout>
+             </item>
+            </layout>
+           </widget>
+          </item>
+         </layout>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="videoGroup">
+          <property name="title">
+           <string>Video</string>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">
+            QGroupBox {
+              background: #252526;
+              border: 2px solid #3E3E3E;
+              border-radius: 12px;
+              padding: 24px;
+              margin-top: 16px;
+            }
+            QGroupBox::title {
+              color: #007ACC;
+              subcontrol-origin: margin;
+              left: 12px;
+              padding: 0 8px;
+            }
+           </string>
+          </property>
+          <layout class="QVBoxLayout" name="videoLayout">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>12</number>
+           </property>
+           <property name="topMargin">
+            <number>12</number>
+           </property>
+           <property name="rightMargin">
+            <number>12</number>
+           </property>
+           <property name="bottomMargin">
+            <number>12</number>
+           </property>
+           <item>
+            <widget class="VideoWidget" name="videoWidget">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+               <horstretch>1</horstretch>
+               <verstretch>1</verstretch>
+              </sizepolicy>
+             </property>
+             <property name="minimumSize">
+              <size>
+               <width>640</width>
+               <height>480</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">
+               QWidget {
+                 background: #1A1A1A;
+                 border: 2px solid #3E3E3E;
+                 border-radius: 12px;
+               }
+              </string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="streamTab">
+       <attribute name="title">
+        <string>Stream Management</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="streamTabLayout">
+        <property name="spacing">
+         <number>8</number>
+        </property>
+        <property name="leftMargin">
+         <number>12</number>
+        </property>
+        <property name="rightMargin">
+         <number>12</number>
+        </property>
+        <property name="topMargin">
+         <number>12</number>
+        </property>
+        <property name="bottomMargin">
+         <number>12</number>
+        </property>
+        <item>
+         <widget class="QTableWidget" name="streamTable">
+          <property name="frameShape">
+           <enum>QFrame::NoFrame</enum>
+          </property>
+          <property name="showGrid">
+           <bool>false</bool>
+          </property>
+          <property name="sortingEnabled">
+           <bool>true</bool>
+          </property>
+          <attribute name="horizontalHeaderStretchLastSection">
+           <bool>true</bool>
+          </attribute>
+          <attribute name="verticalHeaderVisible">
+           <bool>false</bool>
+          </attribute>
+          <column>
+           <property name="text">
+            <string>Name</string>
+           </property>
+          </column>
+          <column>
+           <property name="text">
+            <string>URL</string>
+           </property>
+          </column>
+         </widget>
+        </item>
+        <item>
+         <layout class="QHBoxLayout" name="streamInputLayout">
+          <item>
+           <widget class="QLineEdit" name="streamNameEdit">
+            <property name="placeholderText">
+             <string>Stream Name</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QLineEdit" name="streamUrlEdit">
+            <property name="placeholderText">
+             <string>RTSP URL</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="addStreamButton">
+            <property name="text">
+             <string>Add Stream</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QPushButton" name="removeStreamButton">
+            <property name="text">
+             <string>Remove Selected</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </item>
+       </layout>
+      </widget>
+     </widget>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>VideoWidget</class>
+   <extends>QWidget</extends>
+   <header>src/ui/videowidget.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
