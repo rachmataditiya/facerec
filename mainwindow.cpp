@@ -330,42 +330,41 @@ void MainWindow::onStartButtonClicked()
 
         qDebug() << "Mencoba membuka RTSP stream:" << url;
 
-        // Construct GStreamer pipeline
-        QString gstPipeline = QString(
-            "rtspsrc location=\"%1\" latency=0 ! "
-            "rtph264depay ! "
-            "h264parse ! "
-            "avdec_h264 ! "
-            "videoconvert ! "
-            "appsink max-buffers=1 drop=true"
-        ).arg(url);
-
-        qDebug() << "Pipeline GStreamer:" << gstPipeline;
-
-        // Try to open with GStreamer pipeline
+        // Create VideoCapture with minimal configuration
         videoCapture = new cv::VideoCapture();
-        if (!videoCapture->open(gstPipeline.toStdString(), cv::CAP_GSTREAMER)) {
-            qDebug() << "Gagal membuka dengan GStreamer, mencoba dengan FFMPEG";
-            
-            // Try with FFMPEG as fallback
-            QString rtspURL = QString("ffmpeg:%1?rtsp_transport=tcp&timeout=5000000").arg(url);
-            if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
-                qDebug() << "Gagal membuka dengan FFMPEG";
-                QMessageBox::critical(this, "Error", 
-                    "Tidak dapat membuka stream RTSP: " + url + 
-                    "\nPastikan:\n" +
-                    "1. URL benar\n" +
-                    "2. Server aktif\n" +
-                    "3. Kredensial benar\n" +
-                    "4. Port tidak diblokir firewall\n" +
-                    "5. Coba buka di VLC untuk verifikasi");
-                delete videoCapture;
-                videoCapture = nullptr;
-                return;
-            }
+
+        // Try different connection methods
+        bool success = false;
+        
+        // Method 1: Direct URL with TCP transport
+        QString tcpUrl = url;
+        if (!tcpUrl.contains("transport=")) {
+            tcpUrl += (tcpUrl.contains("?") ? "&" : "?") + QString("transport=tcp");
+        }
+        qDebug() << "Mencoba koneksi dengan URL TCP:" << tcpUrl;
+        success = videoCapture->open(tcpUrl.toStdString());
+
+        if (!success) {
+            qDebug() << "Koneksi TCP gagal, mencoba URL langsung";
+            success = videoCapture->open(url.toStdString());
         }
 
-        // Configure stream parameters
+        if (!success) {
+            qDebug() << "Semua metode koneksi gagal";
+            QMessageBox::critical(this, "Error", 
+                "Tidak dapat membuka stream RTSP: " + url + 
+                "\nPastikan:\n" +
+                "1. URL benar\n" +
+                "2. Server aktif\n" +
+                "3. Kredensial benar\n" +
+                "4. Port tidak diblokir firewall\n" +
+                "5. Coba buka di VLC untuk verifikasi");
+            delete videoCapture;
+            videoCapture = nullptr;
+            return;
+        }
+
+        // Configure stream parameters after successful connection
         videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
         videoCapture->set(cv::CAP_PROP_FPS, 30);
     }
