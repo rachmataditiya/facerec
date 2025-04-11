@@ -2,24 +2,26 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include <QComboBox>
-#include <QLineEdit>
-#include <QPushButton>
-#include <QLabel>
-#include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QGroupBox>
-#include <QTabWidget>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QComboBox>
 #include <QTableWidget>
 #include <QHeaderView>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QJsonArray>
-#include <QFile>
-#include <QFileDialog>
-#include <QSettings>
+#include <QCheckBox>
+#include <QListWidget>
+#include <QTabWidget>
 #include <opencv2/opencv.hpp>
 #include <inspireface.h>
+
+class QTimer;
+namespace cv {
+    class VideoCapture;
+}
 
 class MainWindow : public QMainWindow
 {
@@ -33,56 +35,57 @@ private slots:
     void onStartButtonClicked();
     void onStopButtonClicked();
     void onSourceChanged(int index);
+    void onStreamSelected(int index);
     void onAddStreamClicked();
     void onRemoveStreamClicked();
-    void onStreamSelected(int index);
     void onModelPathButtonClicked();
-    void onModelPathChanged(const QString &path);
+    void onLoadModelClicked();
+    void onModelSelectionChanged();
 
 private:
     void setupUI();
-    void startFaceDetection();
-    void stopFaceDetection();
-    void updateFrame();
     void loadStreams();
     void saveStreams();
     void updateStreamComboBox();
     void updateStreamTable();
-    void loadSettings();
-    void saveSettings();
-    void initializeInspireFace();
+    void updateFrame();
+    bool initializeInspireFace();
+    void unloadModel();
+    void updateModelControls();
+    void stopFaceDetection();
+    void scanModelDirectory();
 
-    // UI Components
     QTabWidget *tabWidget;
+    QGroupBox *modelGroup;
+    QGroupBox *controlGroup;
+    QGroupBox *videoGroup;
+    QGroupBox *streamGroup;
+
+    QLineEdit *modelPathEdit;
+    QPushButton *modelPathButton;
+    QPushButton *loadModelButton;
+    QListWidget *modelListWidget;
+
     QComboBox *sourceComboBox;
     QComboBox *streamComboBox;
     QLineEdit *rtspUrlEdit;
-    QLineEdit *streamNameEdit;
-    QLineEdit *modelPathEdit;
     QPushButton *startButton;
     QPushButton *stopButton;
     QPushButton *addStreamButton;
     QPushButton *removeStreamButton;
-    QPushButton *modelPathButton;
-    QLabel *videoLabel;
-    QGroupBox *controlGroup;
-    QGroupBox *videoGroup;
-    QGroupBox *streamGroup;
-    QGroupBox *modelGroup;
-    QTableWidget *streamTable;
 
-    // Video processing
+    QLabel *videoLabel;
+    QTableWidget *streamTable;
+    QLineEdit *streamNameEdit;
+
     cv::VideoCapture *videoCapture;
     QTimer *timer;
     bool isRunning;
-    HFSession session;
-    HFSessionCustomParameter param;
-
-    // Stream management
+    bool isModelLoaded;
     QJsonArray streams;
 
-    // Settings
-    QSettings *settings;
+    HFSession session;
+    HFSessionCustomParameter param;
 };
 
 #endif // MAINWINDOW_H 
