@@ -328,21 +328,50 @@ void MainWindow::onStartButtonClicked()
             return;
         }
 
+        qDebug() << "Mencoba membuka RTSP stream:" << url;
+
         // Set RTSP pipeline parameters
         videoCapture = new cv::VideoCapture();
         
-        // Force FFMPEG backend for RTSP
-        QString rtspURL = "rtsp_transport=tcp&" + url;
+        // Build RTSP URL with parameters
+        QString rtspURL = url;
+        if (!url.contains("rtsp_transport")) {
+            rtspURL += (url.contains("?") ? "&" : "?") + QString("rtsp_transport=tcp");
+        }
+        if (!url.contains("buffer_size")) {
+            rtspURL += "&buffer_size=131072";
+        }
+        if (!url.contains("stimeout")) {
+            rtspURL += "&stimeout=5000000";
+        }
+        
+        qDebug() << "URL dengan parameter RTSP:" << rtspURL;
+
+        // Try to open with FFMPEG backend
         if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
-            QMessageBox::critical(this, "Error", "Tidak dapat membuka stream RTSP: " + url + "\nPastikan URL benar dan server aktif");
-            delete videoCapture;
-            videoCapture = nullptr;
-            return;
+            qDebug() << "Gagal membuka dengan FFMPEG, mencoba dengan backend default";
+            
+            // Try with default backend
+            if (!videoCapture->open(url.toStdString())) {
+                qDebug() << "Gagal membuka dengan backend default";
+                QMessageBox::critical(this, "Error", 
+                    "Tidak dapat membuka stream RTSP: " + url + 
+                    "\nPastikan:\n" +
+                    "1. URL benar\n" +
+                    "2. Server aktif\n" +
+                    "3. Kredensial benar\n" +
+                    "4. Port tidak diblokir firewall\n" +
+                    "5. OpenCV dikompilasi dengan dukungan FFMPEG");
+                delete videoCapture;
+                videoCapture = nullptr;
+                return;
+            }
         }
 
         // Configure stream parameters
         videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);  // Minimize latency
         videoCapture->set(cv::CAP_PROP_FPS, 30);        // Request 30 FPS
+        videoCapture->set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('H', '2', '6', '4')); // Force H264
     }
 
     if (!videoCapture->isOpened()) {
