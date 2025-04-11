@@ -308,10 +308,17 @@ void MainWindow::onStartButtonClicked()
         videoCapture->set(cv::CAP_PROP_FRAME_HEIGHT, 720);
         videoCapture->set(cv::CAP_PROP_FPS, 30);
     } else {
-        // RTSP
-        QString url = rtspUrlEdit->text();
+        // RTSP - Get URL from selected stream
+        int selectedIndex = streamComboBox->currentIndex();
+        if (selectedIndex < 0 || selectedIndex >= streams.size()) {
+            QMessageBox::warning(this, "Warning", "Pilih stream terlebih dahulu");
+            return;
+        }
+
+        QJsonObject stream = streams[selectedIndex].toObject();
+        QString url = stream["url"].toString();
         if (url.isEmpty()) {
-            QMessageBox::warning(this, "Warning", "Masukkan URL RTSP terlebih dahulu");
+            QMessageBox::warning(this, "Warning", "URL stream tidak valid");
             return;
         }
 
@@ -343,7 +350,7 @@ void MainWindow::onStartButtonClicked()
     startButton->setEnabled(false);
     stopButton->setEnabled(true);
     sourceComboBox->setEnabled(false);
-    rtspUrlEdit->setEnabled(false);
+    streamComboBox->setEnabled(false);
     timer->start(33); // ~30 FPS
 }
 
@@ -372,6 +379,7 @@ void MainWindow::stopFaceDetection()
     startButton->setEnabled(true);
     stopButton->setEnabled(false);
     sourceComboBox->setEnabled(true);
+    streamComboBox->setEnabled(true);
     rtspUrlEdit->setEnabled(sourceComboBox->currentIndex() == 1);
     videoLabel->clear();
 }
@@ -388,15 +396,19 @@ void MainWindow::updateFrame()
     if (!videoCapture->read(frame)) {
         if (sourceComboBox->currentIndex() == 1) { // RTSP
             // Try to reconnect
-            QString url = rtspUrlEdit->text();
-            QString rtspURL = "rtsp_transport=tcp&" + url;
-            if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
-                stopFaceDetection();
-                QMessageBox::critical(this, "Error", "Gagal membaca frame dan reconnect ke RTSP stream");
-                return;
+            int selectedIndex = streamComboBox->currentIndex();
+            if (selectedIndex >= 0 && selectedIndex < streams.size()) {
+                QJsonObject stream = streams[selectedIndex].toObject();
+                QString url = stream["url"].toString();
+                QString rtspURL = "rtsp_transport=tcp&" + url;
+                if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
+                    stopFaceDetection();
+                    QMessageBox::critical(this, "Error", "Gagal membaca frame dan reconnect ke RTSP stream");
+                    return;
+                }
+                videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
+                videoCapture->set(cv::CAP_PROP_FPS, 30);
             }
-            videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
-            videoCapture->set(cv::CAP_PROP_FPS, 30);
         } else {
             stopFaceDetection();
             QMessageBox::critical(this, "Error", "Gagal membaca frame dari kamera");
