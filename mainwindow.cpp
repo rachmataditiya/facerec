@@ -7,16 +7,19 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QTableWidgetItem>
+#include <QFileDialog>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , videoCapture(nullptr)
     , timer(new QTimer(this))
     , isRunning(false)
+    , settings(new QSettings("FaceRec", "Settings", this))
 {
     setupUI();
     connect(timer, &QTimer::timeout, this, &MainWindow::updateFrame);
     loadStreams();
+    loadSettings();
 }
 
 MainWindow::~MainWindow()
@@ -28,6 +31,7 @@ MainWindow::~MainWindow()
     }
     HFReleaseInspireFaceSession(session);
     HFTerminateInspireFace();
+    saveSettings();
 }
 
 void MainWindow::setupUI()
@@ -48,6 +52,20 @@ void MainWindow::setupUI()
     // Create video tab
     QWidget *videoTab = new QWidget(this);
     QVBoxLayout *videoTabLayout = new QVBoxLayout(videoTab);
+
+    // Model Group
+    modelGroup = new QGroupBox("Model Settings", this);
+    QHBoxLayout *modelLayout = new QHBoxLayout(modelGroup);
+
+    modelPathEdit = new QLineEdit(this);
+    modelPathEdit->setPlaceholderText("Path to model directory");
+    modelPathButton = new QPushButton("Browse...", this);
+    connect(modelPathButton, &QPushButton::clicked, this, &MainWindow::onModelPathButtonClicked);
+    connect(modelPathEdit, &QLineEdit::textChanged, this, &MainWindow::onModelPathChanged);
+
+    modelLayout->addWidget(new QLabel("Model Path:", this));
+    modelLayout->addWidget(modelPathEdit);
+    modelLayout->addWidget(modelPathButton);
 
     // Control Group
     controlGroup = new QGroupBox("Control", this);
@@ -94,6 +112,7 @@ void MainWindow::setupUI()
     videoLayout->addWidget(videoLabel);
 
     // Add groups to video tab layout
+    videoTabLayout->addWidget(modelGroup);
     videoTabLayout->addWidget(controlGroup);
     videoTabLayout->addWidget(videoGroup);
 
@@ -137,35 +156,6 @@ void MainWindow::setupUI()
     // Add tabs to tab widget
     tabWidget->addTab(videoTab, "Video");
     tabWidget->addTab(streamTab, "Stream Management");
-
-    // Initialize InspireFace
-    HResult ret = HFLaunchInspireFace("/Users/rachmataditiya/.inspireface/models/Megatron");
-    if (ret != HSUCCEED) {
-        QMessageBox::critical(this, "Error", "Gagal menginisialisasi InspireFace");
-        return;
-    }
-
-    // Configure pipeline
-    param.enable_recognition = 1;
-    param.enable_liveness = 1;
-    param.enable_mask_detect = 1;
-    param.enable_face_attribute = 1;
-    param.enable_face_quality = 1;
-    param.enable_ir_liveness = 0;
-    param.enable_interaction_liveness = 0;
-    param.enable_detect_mode_landmark = 1;
-
-    // Create session
-    ret = HFCreateInspireFaceSession(param, HF_DETECT_MODE_LIGHT_TRACK, 1, 320, 0, &session);
-    if (ret != HSUCCEED) {
-        QMessageBox::critical(this, "Error", "Gagal membuat session");
-        return;
-    }
-
-    // Set detection parameters
-    HFSessionSetFaceDetectThreshold(session, 0.7f);
-    HFSessionSetTrackModeSmoothRatio(session, 0.7f);
-    HFSessionSetFilterMinimumFacePixelSize(session, 60);
 }
 
 void MainWindow::loadStreams()
@@ -394,4 +384,72 @@ void MainWindow::updateFrame()
     QImage qImage(frame.data, frame.cols, frame.rows, frame.step, QImage::Format_RGB888);
     videoLabel->setPixmap(QPixmap::fromImage(qImage).scaled(
         videoLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation));
+}
+
+void MainWindow::loadSettings()
+{
+    QString modelPath = settings->value("modelPath", "/Users/rachmataditiya/.inspireface/models/Megatron").toString();
+    modelPathEdit->setText(modelPath);
+    initializeInspireFace();
+}
+
+void MainWindow::saveSettings()
+{
+    settings->setValue("modelPath", modelPathEdit->text());
+}
+
+void MainWindow::initializeInspireFace()
+{
+    QString modelPath = modelPathEdit->text();
+    HResult ret = HFLaunchInspireFace(modelPath.toStdString().c_str());
+    if (ret != HSUCCEED) {
+        QMessageBox::critical(this, "Error", "Gagal menginisialisasi InspireFace");
+        return;
+    }
+
+    // Configure pipeline
+    param.enable_recognition = 1;
+    param.enable_liveness = 1;
+    param.enable_mask_detect = 1;
+    param.enable_face_attribute = 1;
+    param.enable_face_quality = 1;
+    param.enable_ir_liveness = 0;
+    param.enable_interaction_liveness = 0;
+    param.enable_detect_mode_landmark = 1;
+
+    // Create session
+    ret = HFCreateInspireFaceSession(param, HF_DETECT_MODE_LIGHT_TRACK, 1, 320, 0, &session);
+    if (ret != HSUCCEED) {
+        QMessageBox::critical(this, "Error", "Gagal membuat session");
+        return;
+    }
+
+    // Set detection parameters
+    HFSessionSetFaceDetectThreshold(session, 0.7f);
+    HFSessionSetTrackModeSmoothRatio(session, 0.7f);
+    HFSessionSetFilterMinimumFacePixelSize(session, 60);
+}
+
+void MainWindow::onModelPathButtonClicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, "Select Model Directory",
+                                                  modelPathEdit->text(),
+                                                  QFileDialog::ShowDirsOnly);
+    if (!dir.isEmpty()) {
+        modelPathEdit->setText(dir);
+    }
+}
+
+void MainWindow::onModelPathChanged(const QString &path)
+{
+    if (!path.isEmpty()) {
+        // Release current session
+        if (session) {
+            HFReleaseInspireFaceSession(session);
+        }
+        HFTerminateInspireFace();
+        
+        // Initialize with new path
+        initializeInspireFace();
+    }
 } 

@@ -16,6 +16,8 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QFile>
+#include <QFileDialog>
+#include <QSettings>
 #include <opencv2/opencv.hpp>
 #include <inspireface.h>
 
@@ -34,6 +36,8 @@ private slots:
     void onAddStreamClicked();
     void onRemoveStreamClicked();
     void onStreamSelected(int index);
+    void onModelPathButtonClicked();
+    void onModelPathChanged(const QString &path);
 
 private:
     void setupUI();
@@ -44,6 +48,9 @@ private:
     void saveStreams();
     void updateStreamComboBox();
     void updateStreamTable();
+    void loadSettings();
+    void saveSettings();
+    void initializeInspireFace();
 
     // UI Components
     QTabWidget *tabWidget;
@@ -51,14 +58,17 @@ private:
     QComboBox *streamComboBox;
     QLineEdit *rtspUrlEdit;
     QLineEdit *streamNameEdit;
+    QLineEdit *modelPathEdit;
     QPushButton *startButton;
     QPushButton *stopButton;
     QPushButton *addStreamButton;
     QPushButton *removeStreamButton;
+    QPushButton *modelPathButton;
     QLabel *videoLabel;
     QGroupBox *controlGroup;
     QGroupBox *videoGroup;
     QGroupBox *streamGroup;
+    QGroupBox *modelGroup;
     QTableWidget *streamTable;
 
     // Video processing
@@ -70,6 +80,9 @@ private:
 
     // Stream management
     QJsonArray streams;
+
+    // Settings
+    QSettings *settings;
 };
 
 #endif // MAINWINDOW_H 

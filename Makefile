@@ -1317,6 +1317,10 @@ moc_mainwindow.cpp: mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
 		/opt/homebrew/lib/QtCore.framework/Headers/qfile.h \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/QFileDialog \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/qfiledialog.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QSettings \
+		/opt/homebrew/lib/QtCore.framework/Headers/qsettings.h \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv_modules.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/core.hpp \
@@ -1487,6 +1491,10 @@ main.o: main.cpp /opt/homebrew/lib/QtWidgets.framework/Headers/QApplication \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
 		/opt/homebrew/lib/QtCore.framework/Headers/qfile.h \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/QFileDialog \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/qfiledialog.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QSettings \
+		/opt/homebrew/lib/QtCore.framework/Headers/qsettings.h \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv_modules.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/core.hpp \
@@ -1635,6 +1643,10 @@ mainwindow.o: mainwindow.cpp mainwindow.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/qjsonarray.h \
 		/opt/homebrew/lib/QtCore.framework/Headers/QFile \
 		/opt/homebrew/lib/QtCore.framework/Headers/qfile.h \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/QFileDialog \
+		/opt/homebrew/lib/QtWidgets.framework/Headers/qfiledialog.h \
+		/opt/homebrew/lib/QtCore.framework/Headers/QSettings \
+		/opt/homebrew/lib/QtCore.framework/Headers/qsettings.h \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/opencv_modules.hpp \
 		/opt/homebrew/opt/opencv/include/opencv4/opencv2/core.hpp \
