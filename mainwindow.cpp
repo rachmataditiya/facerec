@@ -330,27 +330,27 @@ void MainWindow::onStartButtonClicked()
 
         qDebug() << "Mencoba membuka RTSP stream:" << url;
 
-        // Set RTSP pipeline parameters
+        // Construct GStreamer pipeline
+        QString gstPipeline = QString(
+            "rtspsrc location=\"%1\" latency=0 ! "
+            "rtph264depay ! "
+            "h264parse ! "
+            "avdec_h264 ! "
+            "videoconvert ! "
+            "appsink max-buffers=1 drop=true"
+        ).arg(url);
+
+        qDebug() << "Pipeline GStreamer:" << gstPipeline;
+
+        // Try to open with GStreamer pipeline
         videoCapture = new cv::VideoCapture();
-
-        // Format URL with explicit protocol and parameters
-        QString rtspURL = QString("ffmpeg:%1").arg(url);
-        rtspURL += "?rtsp_transport=tcp";  // Force TCP
-        rtspURL += "&max_delay=1000000";   // 1 second max delay
-        rtspURL += "&buffer_size=1024000"; // Larger buffer
-        rtspURL += "&stimeout=5000000";    // 5 second timeout
-        rtspURL += "&drop_frame_if_full=1"; // Drop frames if buffer full
-        rtspURL += "&reorder_queue_size=0"; // Disable reordering
-        
-        qDebug() << "URL dengan parameter RTSP:" << rtspURL;
-
-        // Try to open with explicit FFMPEG backend
-        if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
-            qDebug() << "Gagal membuka dengan FFMPEG, mencoba dengan URL langsung";
+        if (!videoCapture->open(gstPipeline.toStdString(), cv::CAP_GSTREAMER)) {
+            qDebug() << "Gagal membuka dengan GStreamer, mencoba dengan FFMPEG";
             
-            // Try direct URL as fallback
-            if (!videoCapture->open(url.toStdString())) {
-                qDebug() << "Gagal membuka dengan URL langsung";
+            // Try with FFMPEG as fallback
+            QString rtspURL = QString("ffmpeg:%1?rtsp_transport=tcp&timeout=5000000").arg(url);
+            if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
+                qDebug() << "Gagal membuka dengan FFMPEG";
                 QMessageBox::critical(this, "Error", 
                     "Tidak dapat membuka stream RTSP: " + url + 
                     "\nPastikan:\n" +
@@ -368,12 +368,6 @@ void MainWindow::onStartButtonClicked()
         // Configure stream parameters
         videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
         videoCapture->set(cv::CAP_PROP_FPS, 30);
-        
-        // Try to force lower latency
-        videoCapture->set(cv::CAP_PROP_FOURCC, cv::VideoWriter::fourcc('H', '2', '6', '4'));
-        videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
-        videoCapture->set(cv::CAP_PROP_FRAME_WIDTH, 1280);
-        videoCapture->set(cv::CAP_PROP_FRAME_HEIGHT, 720);
     }
 
     if (!videoCapture->isOpened()) {
