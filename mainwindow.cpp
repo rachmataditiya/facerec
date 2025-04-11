@@ -314,7 +314,22 @@ void MainWindow::onStartButtonClicked()
             QMessageBox::warning(this, "Warning", "Masukkan URL RTSP terlebih dahulu");
             return;
         }
-        videoCapture = new cv::VideoCapture(url.toStdString());
+
+        // Set RTSP pipeline parameters
+        videoCapture = new cv::VideoCapture();
+        
+        // Force FFMPEG backend for RTSP
+        QString rtspURL = "rtsp_transport=tcp&" + url;
+        if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
+            QMessageBox::critical(this, "Error", "Tidak dapat membuka stream RTSP: " + url + "\nPastikan URL benar dan server aktif");
+            delete videoCapture;
+            videoCapture = nullptr;
+            return;
+        }
+
+        // Configure stream parameters
+        videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);  // Minimize latency
+        videoCapture->set(cv::CAP_PROP_FPS, 30);        // Request 30 FPS
     }
 
     if (!videoCapture->isOpened()) {
@@ -363,10 +378,33 @@ void MainWindow::stopFaceDetection()
 
 void MainWindow::updateFrame()
 {
-    if (!videoCapture || !videoCapture->isOpened()) return;
+    if (!videoCapture || !videoCapture->isOpened()) {
+        stopFaceDetection();
+        QMessageBox::critical(this, "Error", "Koneksi video terputus");
+        return;
+    }
 
     cv::Mat frame;
-    *videoCapture >> frame;
+    if (!videoCapture->read(frame)) {
+        if (sourceComboBox->currentIndex() == 1) { // RTSP
+            // Try to reconnect
+            QString url = rtspUrlEdit->text();
+            QString rtspURL = "rtsp_transport=tcp&" + url;
+            if (!videoCapture->open(rtspURL.toStdString(), cv::CAP_FFMPEG)) {
+                stopFaceDetection();
+                QMessageBox::critical(this, "Error", "Gagal membaca frame dan reconnect ke RTSP stream");
+                return;
+            }
+            videoCapture->set(cv::CAP_PROP_BUFFERSIZE, 1);
+            videoCapture->set(cv::CAP_PROP_FPS, 30);
+        } else {
+            stopFaceDetection();
+            QMessageBox::critical(this, "Error", "Gagal membaca frame dari kamera");
+            return;
+        }
+        return;
+    }
+
     if (frame.empty()) return;
 
     // Convert frame to InspireFace format
