@@ -144,12 +144,14 @@ void MainWindow::setupUI()
     streamTable->setColumnCount(2);
     streamTable->setHorizontalHeaderLabels({"Name", "URL"});
     streamTable->horizontalHeader()->setStretchLastSection(true);
+    streamTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed);
+    connect(streamTable, &QTableWidget::cellChanged, this, &MainWindow::onStreamTableChanged);
 
     // Stream input fields
     QHBoxLayout *streamInputLayout = new QHBoxLayout();
     streamNameEdit = new QLineEdit(this);
     streamNameEdit->setPlaceholderText("Stream Name");
-    QLineEdit *streamUrlEdit = new QLineEdit(this);
+    streamUrlEdit = new QLineEdit(this);
     streamUrlEdit->setPlaceholderText("RTSP URL");
     addStreamButton = new QPushButton("Add Stream", this);
     removeStreamButton = new QPushButton("Remove Selected", this);
@@ -236,18 +238,22 @@ void MainWindow::updateStreamComboBox()
 
 void MainWindow::updateStreamTable()
 {
+    streamTable->blockSignals(true); // Prevent triggering cellChanged while updating
     streamTable->setRowCount(streams.size());
     for (int i = 0; i < streams.size(); ++i) {
         QJsonObject obj = streams[i].toObject();
-        streamTable->setItem(i, 0, new QTableWidgetItem(obj["name"].toString()));
-        streamTable->setItem(i, 1, new QTableWidgetItem(obj["url"].toString()));
+        QTableWidgetItem *nameItem = new QTableWidgetItem(obj["name"].toString());
+        QTableWidgetItem *urlItem = new QTableWidgetItem(obj["url"].toString());
+        streamTable->setItem(i, 0, nameItem);
+        streamTable->setItem(i, 1, urlItem);
     }
+    streamTable->blockSignals(false);
 }
 
 void MainWindow::onAddStreamClicked()
 {
     QString name = streamNameEdit->text();
-    QString url = rtspUrlEdit->text();
+    QString url = streamUrlEdit->text();
 
     if (name.isEmpty() || url.isEmpty()) {
         QMessageBox::warning(this, "Warning", "Nama dan URL stream harus diisi");
@@ -264,7 +270,7 @@ void MainWindow::onAddStreamClicked()
     updateStreamTable();
 
     streamNameEdit->clear();
-    rtspUrlEdit->clear();
+    streamUrlEdit->clear();
 }
 
 void MainWindow::onRemoveStreamClicked()
@@ -603,4 +609,22 @@ void MainWindow::onLoadModelClicked()
     } else {
         initializeInspireFace();
     }
+}
+
+void MainWindow::onStreamTableChanged(int row, int column)
+{
+    if (row < 0 || row >= streams.size()) return;
+
+    QJsonObject stream = streams[row].toObject();
+    QString newValue = streamTable->item(row, column)->text();
+
+    if (column == 0) { // Name column
+        stream["name"] = newValue;
+    } else if (column == 1) { // URL column
+        stream["url"] = newValue;
+    }
+
+    streams[row] = stream;
+    saveStreams();
+    updateStreamComboBox();
 } 

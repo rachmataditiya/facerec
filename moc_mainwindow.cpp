@@ -50,7 +50,10 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         "onRemoveStreamClicked",
         "onModelPathButtonClicked",
         "onLoadModelClicked",
-        "onModelSelectionChanged"
+        "onModelSelectionChanged",
+        "onStreamTableChanged",
+        "row",
+        "column"
     };
 
     QtMocHelpers::UintData qt_methods {
@@ -76,6 +79,10 @@ template <> constexpr inline auto MainWindow::qt_create_metaobjectdata<qt_meta_t
         QtMocHelpers::SlotData<void()>(10, 2, QMC::AccessPrivate, QMetaType::Void),
         // Slot 'onModelSelectionChanged'
         QtMocHelpers::SlotData<void()>(11, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'onStreamTableChanged'
+        QtMocHelpers::SlotData<void(int, int)>(12, 2, QMC::AccessPrivate, QMetaType::Void, {{
+            { QMetaType::Int, 13 }, { QMetaType::Int, 14 },
+        }}),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -108,6 +115,7 @@ void MainWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, int _id, 
         case 6: _t->onModelPathButtonClicked(); break;
         case 7: _t->onLoadModelClicked(); break;
         case 8: _t->onModelSelectionChanged(); break;
+        case 9: _t->onStreamTableChanged((*reinterpret_cast< std::add_pointer_t<int>>(_a[1])),(*reinterpret_cast< std::add_pointer_t<int>>(_a[2]))); break;
         default: ;
         }
     }
@@ -132,14 +140,14 @@ int MainWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 9)
+        if (_id < 10)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 9;
+        _id -= 10;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 9)
+        if (_id < 10)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 9;
+        _id -= 10;
     }
     return _id;
 }

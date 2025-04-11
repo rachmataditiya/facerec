@@ -41,6 +41,7 @@ private slots:
     void onModelPathButtonClicked();
     void onLoadModelClicked();
     void onModelSelectionChanged();
+    void onStreamTableChanged(int row, int column);
 
 private:
     void setupUI();
@@ -48,12 +49,12 @@ private:
     void saveStreams();
     void updateStreamComboBox();
     void updateStreamTable();
-    void updateFrame();
+    void scanModelDirectory();
     bool initializeInspireFace();
     void unloadModel();
     void updateModelControls();
     void stopFaceDetection();
-    void scanModelDirectory();
+    void updateFrame();
 
     QTabWidget *tabWidget;
     QGroupBox *modelGroup;
@@ -69,6 +70,8 @@ private:
     QComboBox *sourceComboBox;
     QComboBox *streamComboBox;
     QLineEdit *rtspUrlEdit;
+    QLineEdit *streamNameEdit;
+    QLineEdit *streamUrlEdit;
     QPushButton *startButton;
     QPushButton *stopButton;
     QPushButton *addStreamButton;
@@ -76,7 +79,6 @@ private:
 
     QLabel *videoLabel;
     QTableWidget *streamTable;
-    QLineEdit *streamNameEdit;
 
     cv::VideoCapture *videoCapture;
     QTimer *timer;

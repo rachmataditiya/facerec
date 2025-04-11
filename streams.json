@@ -2,12 +2,8 @@
     "modelPath": "/Users/rachmataditiya/.inspireface/models",
     "streams": [
         {
-            "name": "Stream 1",
-            "url": "rtsp://example.com/stream1"
-        },
-        {
-            "name": "Stream 2",
-            "url": "rtsp://example.com/stream2"
+            "name": "Pintu Depan",
+            "url": "rtsp://admin:Arkana098@192.168.100.105:5540/Streaming/channels/301"
         }
     ]
 }
