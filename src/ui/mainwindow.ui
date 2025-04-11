@@ -6,14 +6,14 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1280</width>
-    <height>800</height>
+    <width>1440</width>
+    <height>900</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>800</width>
-    <height>600</height>
+    <width>1280</width>
+    <height>720</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -56,6 +56,12 @@
           </property>
           <item>
            <widget class="QGroupBox" name="modelGroup">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+              <horstretch>1</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
             <property name="title">
              <string>Model Settings</string>
             </property>
@@ -92,6 +98,89 @@
                <property name="enabled">
                 <bool>false</bool>
                </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QGroupBox" name="parameterGroup">
+               <property name="title">
+                <string>Model Parameters</string>
+               </property>
+               <layout class="QVBoxLayout" name="parameterLayout">
+                <item>
+                 <widget class="QCheckBox" name="enableRecognitionCheck">
+                  <property name="text">
+                   <string>Enable Recognition</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableLivenessCheck">
+                  <property name="text">
+                   <string>Enable Liveness Detection</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableMaskDetectCheck">
+                  <property name="text">
+                   <string>Enable Mask Detection</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableFaceAttributeCheck">
+                  <property name="text">
+                   <string>Enable Face Attributes</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableFaceQualityCheck">
+                  <property name="text">
+                   <string>Enable Face Quality</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableIrLivenessCheck">
+                  <property name="text">
+                   <string>Enable IR Liveness</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableInteractionLivenessCheck">
+                  <property name="text">
+                   <string>Enable Interaction Liveness</string>
+                  </property>
+                 </widget>
+                </item>
+                <item>
+                 <widget class="QCheckBox" name="enableDetectModeLandmarkCheck">
+                  <property name="text">
+                   <string>Enable Detect Mode Landmark</string>
+                  </property>
+                  <property name="checked">
+                   <bool>true</bool>
+                  </property>
+                 </widget>
+                </item>
+               </layout>
               </widget>
              </item>
             </layout>
@@ -155,6 +244,12 @@
         </item>
         <item>
          <widget class="QGroupBox" name="videoGroup">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+            <horstretch>2</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
           <property name="title">
            <string>Video</string>
           </property>

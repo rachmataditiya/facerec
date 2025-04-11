@@ -36,6 +36,8 @@ private slots:
     void onAddStreamClicked();
     void onRemoveStreamClicked();
     void onStreamTableChanged(int row, int column);
+    void onParameterChanged();
+    void loadModelParameters();
 
 private:
     Ui::MainWindow *ui;

@@ -22,6 +22,10 @@ public:
     QString getModelPath() const;
     void setModelPath(const QString &path);
 
+    // Model parameters
+    void setModelParameters(const QJsonObject &params);
+    QJsonObject getModelParameters() const;
+
     // Stream settings
     void addStream(const QString &name, const QString &url);
     void removeStream(int index);
@@ -33,6 +37,8 @@ public:
 private:
     QJsonObject m_settings;
     QString m_settingsPath;
+    
+    void initializeDefaultSettings();
 };
 
 #endif // SETTINGSMANAGER_H 

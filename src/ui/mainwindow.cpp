@@ -53,6 +53,19 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->addStreamButton, &QPushButton::clicked, this, &MainWindow::onAddStreamClicked);
     connect(ui->removeStreamButton, &QPushButton::clicked, this, &MainWindow::onRemoveStreamClicked);
     connect(ui->streamTable, &QTableWidget::cellChanged, this, &MainWindow::onStreamTableChanged);
+    
+    // Connect parameter change signals
+    connect(ui->enableRecognitionCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableMaskDetectCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableFaceAttributeCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableFaceQualityCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableIrLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableInteractionLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableDetectModeLandmarkCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+            
+    // Load saved parameters
+    loadModelParameters();
 }
 
 MainWindow::~MainWindow()
@@ -208,6 +221,19 @@ void MainWindow::onLoadModelClicked()
     QString modelName = selectedItems.first()->text();
     QString modelFullPath = modelPath + "/" + modelName;
 
+    // Get parameters from settings and apply to model manager's parameters
+    QJsonObject params = m_settingsManager->getModelParameters();
+    HFSessionCustomParameter modelParams = m_modelManager->getParameters();
+    
+    modelParams.enable_recognition = params["enable_recognition"].toInt();
+    modelParams.enable_liveness = params["enable_liveness"].toInt();
+    modelParams.enable_mask_detect = params["enable_mask_detect"].toInt();
+    modelParams.enable_face_attribute = params["enable_face_attribute"].toInt();
+    modelParams.enable_face_quality = params["enable_face_quality"].toInt();
+    modelParams.enable_ir_liveness = params["enable_ir_liveness"].toInt();
+    modelParams.enable_interaction_liveness = params["enable_interaction_liveness"].toInt();
+    modelParams.enable_detect_mode_landmark = params["enable_detect_mode_landmark"].toInt();
+
     if (m_modelManager->loadModel(modelFullPath)) {
         updateModelControls();
     }
@@ -232,4 +258,33 @@ void MainWindow::onStreamTableChanged(int row, int column)
     }
 
     updateStreamComboBox();
+}
+
+void MainWindow::loadModelParameters()
+{
+    QJsonObject params = m_settingsManager->getModelParameters();
+    
+    ui->enableRecognitionCheck->setChecked(params["enable_recognition"].toInt() == 1);
+    ui->enableLivenessCheck->setChecked(params["enable_liveness"].toInt() == 1);
+    ui->enableMaskDetectCheck->setChecked(params["enable_mask_detect"].toInt() == 1);
+    ui->enableFaceAttributeCheck->setChecked(params["enable_face_attribute"].toInt() == 1);
+    ui->enableFaceQualityCheck->setChecked(params["enable_face_quality"].toInt() == 1);
+    ui->enableIrLivenessCheck->setChecked(params["enable_ir_liveness"].toInt() == 1);
+    ui->enableInteractionLivenessCheck->setChecked(params["enable_interaction_liveness"].toInt() == 1);
+    ui->enableDetectModeLandmarkCheck->setChecked(params["enable_detect_mode_landmark"].toInt() == 1);
+}
+
+void MainWindow::onParameterChanged()
+{
+    QJsonObject params;
+    params["enable_recognition"] = ui->enableRecognitionCheck->isChecked() ? 1 : 0;
+    params["enable_liveness"] = ui->enableLivenessCheck->isChecked() ? 1 : 0;
+    params["enable_mask_detect"] = ui->enableMaskDetectCheck->isChecked() ? 1 : 0;
+    params["enable_face_attribute"] = ui->enableFaceAttributeCheck->isChecked() ? 1 : 0;
+    params["enable_face_quality"] = ui->enableFaceQualityCheck->isChecked() ? 1 : 0;
+    params["enable_ir_liveness"] = ui->enableIrLivenessCheck->isChecked() ? 1 : 0;
+    params["enable_interaction_liveness"] = ui->enableInteractionLivenessCheck->isChecked() ? 1 : 0;
+    params["enable_detect_mode_landmark"] = ui->enableDetectModeLandmarkCheck->isChecked() ? 1 : 0;
+    
+    m_settingsManager->setModelParameters(params);
 } 

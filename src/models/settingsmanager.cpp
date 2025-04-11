@@ -8,10 +8,6 @@
 SettingsManager::SettingsManager(QObject *parent)
     : QObject(parent)
 {
-    // Initialize default settings
-    m_settings["modelPath"] = "";
-    m_settings["streams"] = QJsonArray();
-    
     // Get home directory
     QString homePath = QDir::homePath();
     m_settingsPath = QDir(homePath).filePath(".facerec/settings.json");
@@ -19,45 +15,109 @@ SettingsManager::SettingsManager(QObject *parent)
     // Create directory if it doesn't exist
     QDir().mkpath(QFileInfo(m_settingsPath).path());
     
-    // Load existing settings
-    loadSettings();
+    // Initialize default settings
+    initializeDefaultSettings();
+    
+    // Load existing settings or create new one
+    if (!loadSettings()) {
+        saveSettings(); // Save default settings if no file exists
+    }
 }
 
 SettingsManager::~SettingsManager()
 {
+    // Save settings before destroying
+    saveSettings();
+}
+
+void SettingsManager::initializeDefaultSettings()
+{
+    // Model settings
+    m_settings["modelPath"] = "";
+    
+    // Model parameters with default values
+    QJsonObject defaultParams;
+    defaultParams["enable_recognition"] = 1;
+    defaultParams["enable_liveness"] = 1;
+    defaultParams["enable_mask_detect"] = 1;
+    defaultParams["enable_face_attribute"] = 1;
+    defaultParams["enable_face_quality"] = 1;
+    defaultParams["enable_ir_liveness"] = 0;
+    defaultParams["enable_interaction_liveness"] = 0;
+    defaultParams["enable_detect_mode_landmark"] = 1;
+    m_settings["modelParameters"] = defaultParams;
+    
+    // Initialize empty streams array
+    m_settings["streams"] = QJsonArray();
 }
 
 bool SettingsManager::loadSettings()
 {
     QFile file(m_settingsPath);
     if (!file.open(QIODevice::ReadOnly)) {
-        qDebug() << "Cannot open file:" << m_settingsPath;
+        qDebug() << "Cannot open settings file:" << m_settingsPath;
         return false;
     }
 
-    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    QByteArray data = file.readAll();
     file.close();
 
-    if (doc.isObject()) {
-        m_settings = doc.object();
-        return true;
+    if (data.isEmpty()) {
+        qDebug() << "Settings file is empty";
+        return false;
     }
 
-    return false;
+    QJsonDocument doc = QJsonDocument::fromJson(data);
+    if (!doc.isObject()) {
+        qDebug() << "Invalid settings file format";
+        return false;
+    }
+
+    QJsonObject loadedSettings = doc.object();
+    
+    // Merge loaded settings with default settings to ensure all fields exist
+    if (!loadedSettings.contains("modelPath")) {
+        loadedSettings["modelPath"] = m_settings["modelPath"];
+    }
+    
+    if (!loadedSettings.contains("streams")) {
+        loadedSettings["streams"] = m_settings["streams"];
+    }
+    
+    if (!loadedSettings.contains("modelParameters")) {
+        loadedSettings["modelParameters"] = m_settings["modelParameters"];
+    } else {
+        // Ensure all parameters exist in loaded settings
+        QJsonObject defaultParams = m_settings["modelParameters"].toObject();
+        QJsonObject loadedParams = loadedSettings["modelParameters"].toObject();
+        for (auto it = defaultParams.begin(); it != defaultParams.end(); ++it) {
+            if (!loadedParams.contains(it.key())) {
+                loadedParams[it.key()] = it.value();
+            }
+        }
+        loadedSettings["modelParameters"] = loadedParams;
+    }
+    
+    m_settings = loadedSettings;
+    return true;
 }
 
 bool SettingsManager::saveSettings()
 {
     QFile file(m_settingsPath);
     if (!file.open(QIODevice::WriteOnly)) {
-        qDebug() << "Cannot open file for writing:" << m_settingsPath;
+        qDebug() << "Cannot open settings file for writing:" << m_settingsPath;
         return false;
     }
 
     QJsonDocument doc(m_settings);
-    file.write(doc.toJson());
+    if (file.write(doc.toJson(QJsonDocument::Indented)) == -1) {
+        qDebug() << "Error writing settings file:" << file.errorString();
+        file.close();
+        return false;
+    }
+
     file.close();
-    
     return true;
 }
 
@@ -124,4 +184,15 @@ QJsonArray SettingsManager::getAllStreams() const
 int SettingsManager::getStreamCount() const
 {
     return m_settings["streams"].toArray().size();
+}
+
+void SettingsManager::setModelParameters(const QJsonObject &params)
+{
+    m_settings["modelParameters"] = params;
+    saveSettings();
+}
+
+QJsonObject SettingsManager::getModelParameters() const
+{
+    return m_settings["modelParameters"].toObject();
 } 
