@@ -1,0 +1,12 @@
+{
+    "streams": [
+        {
+            "name": "Stream 1",
+            "url": "rtsp://example.com/stream1"
+        },
+        {
+            "name": "Stream 2",
+            "url": "rtsp://example.com/stream2"
+        }
+    ]
+} 
