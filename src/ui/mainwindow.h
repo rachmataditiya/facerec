@@ -12,6 +12,7 @@
 #include "../models/settingsmanager.h"
 #include "../models/faissmanager.h"
 #include "../controllers/facedetectioncontroller.h"
+#include "../controllers/facerecognitioncontroller.h"
 #include "videowidget.h"
 
 namespace Ui {
@@ -54,8 +55,8 @@ private:
     Ui::MainWindow *ui;
     SettingsManager *m_settingsManager;
     ModelManager *m_modelManager;
-    FaceDetectionController *m_faceDetectionController;
     FaissManager *m_faissManager;
+    QObject *m_activeController;  // Pointer to active controller (detection or recognition)
 
     void updateStreamComboBox();
     void updateStreamTable();

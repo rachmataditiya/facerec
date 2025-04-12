@@ -21,8 +21,8 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_settingsManager(new SettingsManager(this))
     , m_modelManager(nullptr)
-    , m_faceDetectionController(nullptr)
     , m_faissManager(nullptr)
+    , m_activeController(nullptr)
 {
     ui->setupUi(this);
     
@@ -54,9 +54,6 @@ MainWindow::MainWindow(QWidget *parent)
     
     updateStreamComboBox();
     updateStreamTable();
-    
-    // Initialize face detection controller with the VideoWidget from UI
-    m_faceDetectionController = new FaceDetectionController(m_modelManager, ui->videoWidget, this);
     
     // Connect signals and slots
     connect(ui->modelPathButton, &QPushButton::clicked, this, &MainWindow::onModelPathButtonClicked);
@@ -109,8 +106,8 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete m_faceDetectionController;
     delete m_faissManager;
+    delete m_activeController;
 }
 
 void MainWindow::updateStreamComboBox()
@@ -152,6 +149,12 @@ void MainWindow::onStartButtonClicked()
         return;
     }
 
+    // Delete existing controller if any
+    if (m_activeController) {
+        delete m_activeController;
+        m_activeController = nullptr;
+    }
+
     int sourceIndex = ui->sourceComboBox->currentIndex();
     QString streamUrl;
 
@@ -166,21 +169,49 @@ void MainWindow::onStartButtonClicked()
         streamUrl = stream["url"].toString();
     }
 
-    if (m_faceDetectionController->startDetection(sourceIndex, streamUrl)) {
-        ui->startButton->setEnabled(false);
-        ui->stopButton->setEnabled(true);
-        ui->sourceComboBox->setEnabled(false);
-        ui->streamComboBox->setEnabled(false);
+    // Create appropriate controller based on recognition checkbox
+    if (ui->enableRecognitionCheck->isChecked()) {
+        m_activeController = new FaceRecognitionController(m_modelManager, m_settingsManager, m_faissManager, ui->videoWidget, this);
+        FaceRecognitionController* recognitionController = static_cast<FaceRecognitionController*>(m_activeController);
+        
+        // Initialize recognition controller first
+        if (!recognitionController->initialize()) {
+            QMessageBox::warning(this, "Warning", "Failed to initialize face recognition");
+            delete m_activeController;
+            m_activeController = nullptr;
+            return;
+        }
+        
+        if (recognitionController->startRecognition(sourceIndex, streamUrl)) {
+            ui->startButton->setEnabled(false);
+            ui->stopButton->setEnabled(true);
+            ui->sourceComboBox->setEnabled(false);
+            ui->streamComboBox->setEnabled(false);
+        }
+    } else {
+        m_activeController = new FaceDetectionController(m_modelManager, ui->videoWidget, this);
+        if (static_cast<FaceDetectionController*>(m_activeController)->startDetection(sourceIndex, streamUrl)) {
+            ui->startButton->setEnabled(false);
+            ui->stopButton->setEnabled(true);
+            ui->sourceComboBox->setEnabled(false);
+            ui->streamComboBox->setEnabled(false);
+        }
     }
 }
 
 void MainWindow::onStopButtonClicked()
 {
-    m_faceDetectionController->stopDetection();
-    ui->startButton->setEnabled(true);
-    ui->stopButton->setEnabled(false);
-    ui->sourceComboBox->setEnabled(true);
-    ui->streamComboBox->setEnabled(true);
+    if (m_activeController) {
+        if (ui->enableRecognitionCheck->isChecked()) {
+            static_cast<FaceRecognitionController*>(m_activeController)->stopRecognition();
+        } else {
+            static_cast<FaceDetectionController*>(m_activeController)->stopDetection();
+        }
+        ui->startButton->setEnabled(true);
+        ui->stopButton->setEnabled(false);
+        ui->sourceComboBox->setEnabled(true);
+        ui->streamComboBox->setEnabled(true);
+    }
 }
 
 void MainWindow::onSourceChanged(int index)
