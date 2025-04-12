@@ -37,12 +37,14 @@ private slots:
     void onRemoveStreamClicked();
     void onStreamTableChanged(int row, int column);
     void onParameterChanged();
+    void onDetectionParameterChanged();
     void loadModelParameters();
+    void loadDetectionParameters();
 
 private:
     Ui::MainWindow *ui;
-    ModelManager *m_modelManager;
     SettingsManager *m_settingsManager;
+    ModelManager *m_modelManager;
     FaceDetectionController *m_faceDetectionController;
 
     void updateStreamComboBox();

@@ -6,20 +6,22 @@
 #include <QJsonObject>
 #include <QFile>
 
-ModelManager::ModelManager(QObject *parent)
+ModelManager::ModelManager(SettingsManager* settingsManager, QObject *parent)
     : QObject(parent)
     , m_session(nullptr)
     , m_isModelLoaded(false)
+    , m_settingsManager(settingsManager)
 {
-    // Initialize default parameters
-    m_param.enable_recognition = 1;
-    m_param.enable_liveness = 1;
-    m_param.enable_mask_detect = 1;
-    m_param.enable_face_attribute = 1;
-    m_param.enable_face_quality = 1;
-    m_param.enable_ir_liveness = 0;
-    m_param.enable_interaction_liveness = 0;
-    m_param.enable_detect_mode_landmark = 1;
+    // Initialize parameters from settings
+    QJsonObject params = m_settingsManager->getModelParameters();
+    m_param.enable_recognition = params.value("enable_recognition").toInt(1);
+    m_param.enable_liveness = params.value("enable_liveness").toInt(1);
+    m_param.enable_mask_detect = params.value("enable_mask_detect").toInt(1);
+    m_param.enable_face_attribute = params.value("enable_face_attribute").toInt(1);
+    m_param.enable_face_quality = params.value("enable_face_quality").toInt(1);
+    m_param.enable_ir_liveness = params.value("enable_ir_liveness").toInt(0);
+    m_param.enable_interaction_liveness = params.value("enable_interaction_liveness").toInt(0);
+    m_param.enable_detect_mode_landmark = params.value("enable_detect_mode_landmark").toInt(1);
 }
 
 ModelManager::~ModelManager()
@@ -27,13 +29,28 @@ ModelManager::~ModelManager()
     unloadModel();
 }
 
-bool ModelManager::loadModel(const QString &modelPath)
+bool ModelManager::loadModel()
 {
     if (m_isModelLoaded) {
         unloadModel();
     }
 
-    HResult ret = HFLaunchInspireFace(modelPath.toStdString().c_str());
+    QString modelPath = m_settingsManager->getModelPath();
+    if (modelPath.isEmpty()) {
+        qDebug() << "Model path is not set in settings";
+        return false;
+    }
+
+    // Get the first model in the directory
+    QList<QString> models = scanModelDirectory(modelPath);
+    if (models.isEmpty()) {
+        qDebug() << "No models found in directory:" << modelPath;
+        return false;
+    }
+
+    QString modelFullPath = modelPath + "/" + models.first();
+
+    HResult ret = HFLaunchInspireFace(modelFullPath.toStdString().c_str());
     if (ret != HSUCCEED) {
         qDebug() << "Failed to initialize InspireFace. Error code:" << ret;
         return false;
@@ -46,10 +63,15 @@ bool ModelManager::loadModel(const QString &modelPath)
         return false;
     }
 
-    // Set detection parameters
-    HFSessionSetFaceDetectThreshold(m_session, 0.7f);
-    HFSessionSetTrackModeSmoothRatio(m_session, 0.7f);
-    HFSessionSetFilterMinimumFacePixelSize(m_session, 60);
+    // Set detection parameters from settings
+    QJsonObject detectionParams = m_settingsManager->getDetectionParameters();
+    float faceDetectThreshold = detectionParams.value("face_detect_threshold").toDouble(0.7);
+    float trackModeSmoothRatio = detectionParams.value("track_mode_smooth_ratio").toDouble(0.7);
+    int filterMinimumFacePixelSize = detectionParams.value("filter_minimum_face_pixel_size").toInt(60);
+
+    HFSessionSetFaceDetectThreshold(m_session, faceDetectThreshold);
+    HFSessionSetTrackModeSmoothRatio(m_session, trackModeSmoothRatio);
+    HFSessionSetFilterMinimumFacePixelSize(m_session, filterMinimumFacePixelSize);
 
     m_isModelLoaded = true;
     return true;

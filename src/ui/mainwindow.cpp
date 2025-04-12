@@ -13,11 +13,14 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
-    , m_modelManager(new ModelManager(this))
     , m_settingsManager(new SettingsManager(this))
+    , m_modelManager(nullptr)
     , m_faceDetectionController(nullptr)
 {
     ui->setupUi(this);
+    
+    // Initialize ModelManager after SettingsManager
+    m_modelManager = new ModelManager(m_settingsManager, this);
     
     // Hide stream combobox by default since camera is the default source
     ui->streamComboBox->setVisible(false);
@@ -63,9 +66,15 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->enableIrLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
     connect(ui->enableInteractionLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
     connect(ui->enableDetectModeLandmarkCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    
+    // Connect detection parameter change signals
+    connect(ui->faceDetectThresholdSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
+    connect(ui->trackModeSmoothRatioSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
+    connect(ui->filterMinimumFacePixelSizeSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
             
     // Load saved parameters
     loadModelParameters();
+    loadDetectionParameters();
 }
 
 MainWindow::~MainWindow()
@@ -221,20 +230,10 @@ void MainWindow::onLoadModelClicked()
     QString modelName = selectedItems.first()->text();
     QString modelFullPath = modelPath + "/" + modelName;
 
-    // Get parameters from settings and apply to model manager's parameters
-    QJsonObject params = m_settingsManager->getModelParameters();
-    HFSessionCustomParameter modelParams = m_modelManager->getParameters();
-    
-    modelParams.enable_recognition = params["enable_recognition"].toInt();
-    modelParams.enable_liveness = params["enable_liveness"].toInt();
-    modelParams.enable_mask_detect = params["enable_mask_detect"].toInt();
-    modelParams.enable_face_attribute = params["enable_face_attribute"].toInt();
-    modelParams.enable_face_quality = params["enable_face_quality"].toInt();
-    modelParams.enable_ir_liveness = params["enable_ir_liveness"].toInt();
-    modelParams.enable_interaction_liveness = params["enable_interaction_liveness"].toInt();
-    modelParams.enable_detect_mode_landmark = params["enable_detect_mode_landmark"].toInt();
+    // Update model path in settings (only the directory path)
+    m_settingsManager->setModelPath(modelPath);
 
-    if (m_modelManager->loadModel(modelFullPath)) {
+    if (m_modelManager->loadModel()) {
         updateModelControls();
     }
 }
@@ -287,4 +286,40 @@ void MainWindow::onParameterChanged()
     params["enable_detect_mode_landmark"] = ui->enableDetectModeLandmarkCheck->isChecked() ? 1 : 0;
     
     m_settingsManager->setModelParameters(params);
+}
+
+void MainWindow::loadDetectionParameters()
+{
+    QJsonObject detectionParams = m_settingsManager->getDetectionParameters();
+    
+    // Block signals while setting values
+    ui->faceDetectThresholdSpin->blockSignals(true);
+    ui->trackModeSmoothRatioSpin->blockSignals(true);
+    ui->filterMinimumFacePixelSizeSpin->blockSignals(true);
+    
+    // Set values from settings
+    ui->faceDetectThresholdSpin->setValue(detectionParams.value("face_detect_threshold").toDouble(0.7));
+    ui->trackModeSmoothRatioSpin->setValue(detectionParams.value("track_mode_smooth_ratio").toDouble(0.7));
+    ui->filterMinimumFacePixelSizeSpin->setValue(detectionParams.value("filter_minimum_face_pixel_size").toInt(60));
+    
+    // Unblock signals
+    ui->faceDetectThresholdSpin->blockSignals(false);
+    ui->trackModeSmoothRatioSpin->blockSignals(false);
+    ui->filterMinimumFacePixelSizeSpin->blockSignals(false);
+}
+
+void MainWindow::onDetectionParameterChanged()
+{
+    QJsonObject detectionParams;
+    detectionParams["face_detect_threshold"] = ui->faceDetectThresholdSpin->value();
+    detectionParams["track_mode_smooth_ratio"] = ui->trackModeSmoothRatioSpin->value();
+    detectionParams["filter_minimum_face_pixel_size"] = ui->filterMinimumFacePixelSizeSpin->value();
+    
+    m_settingsManager->setDetectionParameters(detectionParams);
+    
+    // If model is loaded, reload it to apply new parameters
+    if (m_modelManager->isModelLoaded()) {
+        m_modelManager->unloadModel();
+        m_modelManager->loadModel();
+    }
 } 

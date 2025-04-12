@@ -26,6 +26,10 @@ public:
     void setModelParameters(const QJsonObject &params);
     QJsonObject getModelParameters() const;
 
+    // Detection parameters
+    void setDetectionParameters(const QJsonObject &params);
+    QJsonObject getDetectionParameters() const;
+
     // Stream settings
     void addStream(const QString &name, const QString &url);
     void removeStream(int index);

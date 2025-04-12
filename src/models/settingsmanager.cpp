@@ -47,6 +47,13 @@ void SettingsManager::initializeDefaultSettings()
     defaultParams["enable_detect_mode_landmark"] = 1;
     m_settings["modelParameters"] = defaultParams;
     
+    // Detection parameters with default values
+    QJsonObject defaultDetectionParams;
+    defaultDetectionParams["face_detect_threshold"] = 0.7;
+    defaultDetectionParams["track_mode_smooth_ratio"] = 0.7;
+    defaultDetectionParams["filter_minimum_face_pixel_size"] = 60;
+    m_settings["detectionParameters"] = defaultDetectionParams;
+    
     // Initialize empty streams array
     m_settings["streams"] = QJsonArray();
 }
@@ -96,6 +103,20 @@ bool SettingsManager::loadSettings()
             }
         }
         loadedSettings["modelParameters"] = loadedParams;
+    }
+    
+    if (!loadedSettings.contains("detectionParameters")) {
+        loadedSettings["detectionParameters"] = m_settings["detectionParameters"];
+    } else {
+        // Ensure all detection parameters exist in loaded settings
+        QJsonObject defaultParams = m_settings["detectionParameters"].toObject();
+        QJsonObject loadedParams = loadedSettings["detectionParameters"].toObject();
+        for (auto it = defaultParams.begin(); it != defaultParams.end(); ++it) {
+            if (!loadedParams.contains(it.key())) {
+                loadedParams[it.key()] = it.value();
+            }
+        }
+        loadedSettings["detectionParameters"] = loadedParams;
     }
     
     m_settings = loadedSettings;
@@ -195,4 +216,15 @@ void SettingsManager::setModelParameters(const QJsonObject &params)
 QJsonObject SettingsManager::getModelParameters() const
 {
     return m_settings["modelParameters"].toObject();
+}
+
+void SettingsManager::setDetectionParameters(const QJsonObject &params)
+{
+    m_settings["detectionParameters"] = params;
+    saveSettings();
+}
+
+QJsonObject SettingsManager::getDetectionParameters() const
+{
+    return m_settings["detectionParameters"].toObject();
 } 

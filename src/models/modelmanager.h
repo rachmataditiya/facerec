@@ -5,16 +5,17 @@
 #include <QString>
 #include <QList>
 #include <inspireface.h>
+#include "settingsmanager.h"
 
 class ModelManager : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit ModelManager(QObject *parent = nullptr);
+    explicit ModelManager(SettingsManager* settingsManager, QObject *parent = nullptr);
     ~ModelManager();
 
-    bool loadModel(const QString &modelPath);
+    bool loadModel();
     void unloadModel();
     bool isModelLoaded() const;
     HFSession getSession() const;
@@ -33,6 +34,7 @@ private:
     HFSessionCustomParameter m_param;
     bool m_isModelLoaded;
     QString m_modelPath;
+    SettingsManager* m_settingsManager;
 };
 
 #endif // MODELMANAGER_H 
