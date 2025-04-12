@@ -290,26 +290,9 @@ bool FaissManager::connectToDatabase()
         m_settingsManager->getPostgresPassword()
     );
 
-    qDebug() << "🔑 Connection info:" << connInfo;
-
     m_pgConn = PQconnectdb(connInfo.toUtf8().constData());
-    ConnStatusType status = PQstatus(m_pgConn);
-    if (status != CONNECTION_OK) {
-        qDebug() << "❌ Failed to connect to PostgreSQL:";
-        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
-        qDebug() << "  • Status:" << (status == CONNECTION_OK ? "OK" :
-                                    status == CONNECTION_BAD ? "BAD" :
-                                    status == CONNECTION_STARTED ? "STARTED" :
-                                    status == CONNECTION_MADE ? "MADE" :
-                                    status == CONNECTION_AWAITING_RESPONSE ? "AWAITING_RESPONSE" :
-                                    status == CONNECTION_AUTH_OK ? "AUTH_OK" :
-                                    status == CONNECTION_SETENV ? "SETENV" :
-                                    status == CONNECTION_SSL_STARTUP ? "SSL_STARTUP" :
-                                    status == CONNECTION_NEEDED ? "NEEDED" : "UNKNOWN");
-        qDebug() << "  • DB name:" << PQdb(m_pgConn);
-        qDebug() << "  • User:" << PQuser(m_pgConn);
-        qDebug() << "  • Host:" << PQhost(m_pgConn);
-        qDebug() << "  • Port:" << PQport(m_pgConn);
+    if (PQstatus(m_pgConn) != CONNECTION_OK) {
+        qDebug() << "❌ Failed to connect to PostgreSQL:" << PQerrorMessage(m_pgConn);
         return false;
     }
     qDebug() << "✅ Connected to PostgreSQL successfully";
@@ -388,23 +371,12 @@ bool FaissManager::refreshIndex(bool incremental)
         return false;
     }
 
-    // Verify connection is still valid
-    if (PQstatus(m_pgConn) != CONNECTION_OK) {
-        qDebug() << "❌ Database connection lost";
-        return false;
-    }
-
     qDebug() << "🔄 Refreshing FAISS index..." << (incremental ? "(incremental)" : "(full)");
 
     // Get total count from database
-    const char* countQuery = "SELECT COUNT(*) FROM person_embeddings";
-    qDebug() << "🔍 Executing count query:" << countQuery;
-    
-    PGresult* countRes = PQexec(m_pgConn, countQuery);
+    PGresult* countRes = PQexec(m_pgConn, "SELECT COUNT(*) FROM person_embeddings");
     if (PQresultStatus(countRes) != PGRES_TUPLES_OK) {
-        qDebug() << "❌ Failed to get count:";
-        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
-        qDebug() << "  • Status:" << PQresStatus(PQresultStatus(countRes));
+        qDebug() << "❌ Failed to get count:" << PQerrorMessage(m_pgConn);
         PQclear(countRes);
         return false;
     }
@@ -426,32 +398,18 @@ bool FaissManager::refreshIndex(bool incremental)
     }
     queryStr += " ORDER BY created_at DESC";
 
-    qDebug() << "🔍 Executing query:" << queryStr;
-
-    // Convert query to UTF-8 and ensure it's properly terminated
-    QByteArray queryBytes = queryStr.toUtf8();
-    const char* query = queryBytes.constData();
-
+    const char* query = queryStr.toUtf8().constData();
     PGresult* res;
+
     if (incremental && m_lastSyncTime.isValid()) {
-        QByteArray paramBytes = m_lastSyncTime.toString(Qt::ISODate).toUtf8();
-        const char* params[1] = { paramBytes.constData() };
+        const char* params[1] = { m_lastSyncTime.toString(Qt::ISODate).toUtf8().constData() };
         res = PQexecParams(m_pgConn, query, 1, nullptr, params, nullptr, nullptr, 0);
     } else {
         res = PQexec(m_pgConn, query);
     }
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
-        qDebug() << "❌ Failed to query embeddings:";
-        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
-        qDebug() << "  • Status code:" << PQresultStatus(res);
-        qDebug() << "  • Status text:" << PQresStatus(PQresultStatus(res));
-        qDebug() << "  • Connection status:" << PQstatus(m_pgConn);
-        qDebug() << "  • DB name:" << PQdb(m_pgConn);
-        qDebug() << "  • User:" << PQuser(m_pgConn);
-        qDebug() << "  • Host:" << PQhost(m_pgConn);
-        qDebug() << "  • Port:" << PQport(m_pgConn);
-        qDebug() << "  • Query:" << queryStr;
+        qDebug() << "❌ Failed to query embeddings:" << PQerrorMessage(m_pgConn);
         PQclear(res);
         return false;
     }
@@ -509,34 +467,22 @@ bool FaissManager::refreshIndex(bool incremental)
         uniquePersons.insert(personId);
     }
 
-    qDebug() << "📥 Processing results:";
+    qDebug() << "�� Processing results:";
     qDebug() << "  ✅ Added:" << newCount << "vectors";
     qDebug() << "  ⏭️ Skipped:" << skippedCount << "vectors (already exists)";
     qDebug() << "  ❌ Errors:" << errorCount << "vectors";
     qDebug() << "  👥 Unique persons in batch:" << uniquePersons.size();
     qDebug() << "  📚 Total vectors in FAISS:" << m_index->ntotal;
     qDebug() << "  📈 Coverage:" << QString::number(static_cast<double>(m_index->ntotal) / dbCount * 100, 'f', 1) << "%";
-    qDebug() << "  📊 Batch stats:";
-    qDebug() << "    • Total processed:" << rows;
-    qDebug() << "    • Success rate:" << QString::number(static_cast<double>(newCount) / rows * 100, 'f', 1) << "%";
-    qDebug() << "    • Error rate:" << QString::number(static_cast<double>(errorCount) / rows * 100, 'f', 1) << "%";
 
     PQclear(res);
 
     if (newCount > 0) {
         qDebug() << "💾 Saving cache...";
         m_index->add(newCount, vectors.data());
-        if (saveCache()) {
-            qDebug() << "✅ Cache saved successfully with" << m_index->ntotal << "vectors";
-            qDebug() << "📊 Final stats:";
-            qDebug() << "  • Total vectors in FAISS:" << m_index->ntotal;
-            qDebug() << "  • Total unique persons:" << m_personInfo.size();
-            qDebug() << "  • Coverage:" << QString::number(static_cast<double>(m_index->ntotal) / dbCount * 100, 'f', 1) << "%";
-        } else {
-            qDebug() << "❌ Failed to save cache";
-        }
+        saveCache();
     } else {
-        qDebug() << "ℹ️ No new embeddings found";
+        qDebug() << "No new embeddings found";
     }
 
     return true;

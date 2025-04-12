@@ -5,41 +5,59 @@
 #include <QImage>
 #include <QVector>
 #include <QString>
-#include <QDir>
-#include <faiss/IndexFlat.h>
-#include <faiss/IndexIVFFlat.h>
-#include <faiss/index_io.h>
+#include <QTimer>
+#include <QDebug>
+#include <opencv2/opencv.hpp>
+#include <inspireface.h>
 #include "../models/modelmanager.h"
 #include "../models/settingsmanager.h"
+#include "../models/faissmanager.h"
+#include "../ui/videowidget.h"
 
 class FaceRecognitionController : public QObject
 {
     Q_OBJECT
 
 public:
-    explicit FaceRecognitionController(ModelManager* modelManager, SettingsManager* settingsManager, QObject *parent = nullptr);
+    explicit FaceRecognitionController(ModelManager* modelManager, 
+                                     SettingsManager* settingsManager,
+                                     FaissManager* faissManager,
+                                     VideoWidget* videoWidget,
+                                     QObject *parent = nullptr);
     ~FaceRecognitionController();
 
     bool initialize();
     void shutdown();
 
+    // Video source handling
+    bool startRecognition(int sourceIndex, const QString &streamUrl);
+    void stopRecognition();
+    bool isRunning() const;
+
     // Face recognition functions
-    bool addFace(const QString &name, const QImage &image);
-    bool removeFace(const QString &name);
     QString recognizeFace(const QImage &image);
-    QVector<QString> getAllFaces() const;
+
+signals:
+    void streamStopped(const QString &url);
+
+private slots:
+    void processFrame();
 
 private:
+    void drawRecognitionResults(cv::Mat &frame, const QString &name, float distance, 
+                              const cv::Rect &faceRect, const QString &gender, 
+                              const QString &age, bool isWearingMask, bool isLive,
+                              const QString &memberId);
+    void drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect);
+
     ModelManager* m_modelManager;
     SettingsManager* m_settingsManager;
-    faiss::Index* m_index;
-    QVector<QString> m_faceNames;
+    FaissManager* m_faissManager;
+    VideoWidget* m_videoWidget;
+    QTimer* m_timer;
+    cv::VideoCapture* m_videoCapture;
     bool m_isInitialized;
-
-    bool loadIndex();
-    bool saveIndex();
-    bool createIndex();
-    QVector<float> extractFeatures(const QImage &image);
+    bool m_isRunning;
 };
 
 #endif // FACERECOGNITIONCONTROLLER_H 
