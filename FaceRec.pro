@@ -1,4 +1,4 @@
-QT += core gui widgets
+QT += core gui widgets network
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -48,9 +48,6 @@ else: unix:!android: target.path = /opt/$${TARGET}/bin
 # Include paths
 INCLUDEPATH += \
     /opt/homebrew/include \
-    /opt/homebrew/lib/QtCore.framework/Headers \
-    /opt/homebrew/lib/QtGui.framework/Headers \
-    /opt/homebrew/lib/QtWidgets.framework/Headers \
     $$PWD/InspireFace/include \
     /opt/homebrew/include/opencv4 \
     /opt/homebrew/include/postgresql@17 \
@@ -60,9 +57,10 @@ INCLUDEPATH += \
 # Library paths
 LIBS += \
     -F/opt/homebrew/lib \
-    -framework QtCore \
-    -framework QtGui \
+    -framework QtNetwork \
     -framework QtWidgets \
+    -framework QtGui \
+    -framework QtCore \
     -L/opt/homebrew/lib \
     -lopencv_core \
     -lopencv_imgproc \

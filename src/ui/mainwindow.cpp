@@ -1,3 +1,9 @@
+#include <QColor>
+#include <libpq-fe.h>
+#include <QtNetwork/QNetworkAccessManager>
+#include <QtNetwork/QNetworkRequest>
+#include <QtNetwork/QNetworkReply>
+#include <QEventLoop>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QVBoxLayout>
@@ -8,8 +14,6 @@
 #include <QHeaderView>
 #include <QApplication>
 #include <QPalette>
-#include <QColor>
-#include <libpq-fe.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -87,6 +91,8 @@ MainWindow::MainWindow(QWidget *parent)
             this, &MainWindow::onSaveAllSettingsButtonClicked);
     connect(ui->postgresTestButton, &QPushButton::clicked,
             this, &MainWindow::onPostgresTestButtonClicked);
+    connect(ui->supabaseTestButton, &QPushButton::clicked,
+            this, &MainWindow::onSupabaseTestButtonClicked);
     
     // Load saved parameters
     loadModelParameters();
@@ -432,4 +438,43 @@ void MainWindow::onPostgresTestButtonClicked()
             "Failed to connect to PostgreSQL database:\n" + errorMessage);
         PQfinish(conn);
     }
+}
+
+void MainWindow::onSupabaseTestButtonClicked()
+{
+    QString url = ui->supabaseUrlEdit->text();
+    QString apiKey = ui->supabaseKeyEdit->text();
+
+    if (url.isEmpty() || apiKey.isEmpty()) {
+        QMessageBox::warning(this, "Validation Error",
+            "Please enter both Project URL and API Key");
+        return;
+    }
+
+    // Create network manager and request
+    QNetworkAccessManager *manager = new QNetworkAccessManager(this);
+    QNetworkRequest request(QUrl(url + "/rest/v1/"));
+    
+    // Add Supabase headers
+    request.setRawHeader("apikey", apiKey.toUtf8());
+    request.setRawHeader("Authorization", "Bearer " + apiKey.toUtf8());
+    
+    // Send request
+    QNetworkReply *reply = manager->get(request);
+    
+    // Create event loop to wait for response
+    QEventLoop loop;
+    connect(reply, &QNetworkReply::finished, &loop, &QEventLoop::quit);
+    loop.exec();
+    
+    if (reply->error() == QNetworkReply::NoError) {
+        QMessageBox::information(this, "Connection Test",
+            "Successfully connected to Supabase!");
+    } else {
+        QMessageBox::critical(this, "Connection Test",
+            "Failed to connect to Supabase:\n" + reply->errorString());
+    }
+    
+    reply->deleteLater();
+    manager->deleteLater();
 } 

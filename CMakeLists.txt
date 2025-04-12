@@ -10,7 +10,7 @@ set(SOURCES
 ) 
 
 # Find required packages
-find_package(Qt6 COMPONENTS Core Gui Widgets REQUIRED)
+find_package(Qt6 COMPONENTS Core Gui Widgets Network REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Add FAISS library
@@ -24,6 +24,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
+    Qt6::Network
     ${OpenCV_LIBS}
     ${FAISS_LIBRARY}
     ${INSPIRE_FACE_LIBRARY}

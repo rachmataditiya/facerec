@@ -766,6 +766,42 @@
              </property>
             </widget>
            </item>
+           <item row="2" column="1">
+            <widget class="QPushButton" name="supabaseTestButton">
+             <property name="minimumSize">
+              <size>
+               <width>150</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">
+               QPushButton {
+                 background-color: #007ACC;
+                 color: white;
+                 border: none;
+                 border-radius: 4px;
+                 padding: 4px 12px;
+               }
+               QPushButton:hover {
+                 background-color: #005999;
+               }
+               QPushButton:pressed {
+                 background-color: #004C80;
+               }
+              </string>
+             </property>
+             <property name="text">
+              <string>Test API Key</string>
+             </property>
+            </widget>
+           </item>
           </layout>
          </widget>
         </item>

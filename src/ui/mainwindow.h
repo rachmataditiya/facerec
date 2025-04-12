@@ -34,6 +34,7 @@ private slots:
     void onFaissCachePathButtonClicked();
     void onSaveAllSettingsButtonClicked();
     void onPostgresTestButtonClicked();
+    void onSupabaseTestButtonClicked();
     void onModelSelectionChanged();
     void onSourceChanged(int index);
     void onStreamSelected(int index);
