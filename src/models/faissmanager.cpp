@@ -467,7 +467,7 @@ bool FaissManager::refreshIndex(bool incremental)
         uniquePersons.insert(personId);
     }
 
-    qDebug() << "�� Processing results:";
+    qDebug() << "📥 Processing results:";
     qDebug() << "  ✅ Added:" << newCount << "vectors";
     qDebug() << "  ⏭️ Skipped:" << skippedCount << "vectors (already exists)";
     qDebug() << "  ❌ Errors:" << errorCount << "vectors";
@@ -488,17 +488,17 @@ bool FaissManager::refreshIndex(bool incremental)
     return true;
 }
 
-bool FaissManager::addFace(const QString &personId, const inspire::FaceEmbedding &embedding, const QString &rowId)
+bool FaissManager::addFace(const QString &personId, const HFFaceFeature &feature, const QString &rowId)
 {
     if (!m_isInitialized) {
         return false;
     }
 
     try {
-        // Convert embedding to vector<float>
+        // Convert HFFaceFeature to vector<float>
         std::vector<float> vec(EMBEDDING_DIM);
         for (size_t i = 0; i < EMBEDDING_DIM; ++i) {
-            vec[i] = embedding.embedding[i];
+            vec[i] = feature.data[i];
         }
 
         // Normalize vector
@@ -559,17 +559,17 @@ bool FaissManager::removeFace(const QString &personId)
     }
 }
 
-QVector<QPair<QString, float>> FaissManager::recognizeFace(const inspire::FaceEmbedding &embedding)
+QVector<QPair<QString, float>> FaissManager::recognizeFace(const HFFaceFeature &feature)
 {
     if (!m_isInitialized || m_index->ntotal == 0) {
         return {};
     }
 
     try {
-        // Convert embedding to vector<float>
+        // Convert HFFaceFeature to vector<float>
         std::vector<float> vec(EMBEDDING_DIM);
         for (size_t i = 0; i < EMBEDDING_DIM; ++i) {
-            vec[i] = embedding.embedding[i];
+            vec[i] = feature.data[i];
         }
 
         // Normalize vector

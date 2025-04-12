@@ -22,8 +22,8 @@
 #include <faiss/IndexIDMap.h>
 #include <faiss/impl/IDSelector.h>
 
-// InspireFace
-#include <inspireface/inspireface.hpp>
+// InspireFace C API
+#include <inspireface.h>
 
 class SettingsManager;
 
@@ -48,9 +48,9 @@ public:
     bool saveCache();
     bool createIndex();
 
-    bool addFace(const QString &personId, const inspire::FaceEmbedding &embedding, const QString &rowId);
+    bool addFace(const QString &personId, const HFFaceFeature &feature, const QString &rowId);
     bool removeFace(const QString &personId);
-    QVector<QPair<QString, float>> recognizeFace(const inspire::FaceEmbedding &embedding);
+    QVector<QPair<QString, float>> recognizeFace(const HFFaceFeature &feature);
     QStringList getAllFaces() const;
 
     bool loadPersonInfo();

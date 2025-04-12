@@ -5,6 +5,8 @@
 #include <opencv2/opencv.hpp>
 #include <inspireface.h>
 #include <cstring> // untuk memset
+#include <QFile>
+#include <QTextStream>
 
 FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager, 
                                                      SettingsManager* settingsManager,
@@ -74,7 +76,8 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     HFSession session = m_modelManager->getSession();
 
     // Deteksi wajah
-    HFMultipleFaceData multipleFaceData = {0};
+    HFMultipleFaceData multipleFaceData;
+    memset(&multipleFaceData, 0, sizeof(HFMultipleFaceData));
     ret = HFExecuteFaceTrack(session, detectionStream, &multipleFaceData);
     if (ret != HSUCCEED || multipleFaceData.detectedNum == 0) {
         qDebug() << "No face detected. Error code:" << ret;
@@ -84,46 +87,58 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
 
     // Buat token untuk wajah pertama yang terdeteksi
     HFFaceBasicToken faceToken;
-    faceToken.size = sizeof(HFFaceBasicToken);
-    faceToken.data = &multipleFaceData.tokens[0];
+    faceToken.size = multipleFaceData.tokens[0].size;
+    faceToken.data = new unsigned char[faceToken.size];
+    memcpy(faceToken.data, multipleFaceData.tokens[0].data, faceToken.size);
 
     // Lepaskan stream deteksi agar tidak terpakai lagi
     HFReleaseImageStream(detectionStream);
 
-    // --- 2. Buat stream baru khusus untuk ekstraksi fitur ---
+    // Buat stream baru khusus untuk ekstraksi fitur
     HFImageStream extractionStream;
     ret = HFCreateImageStream(&imageData, &extractionStream);
     if (ret != HSUCCEED) {
         qDebug() << "Failed to create image stream for extraction. Error code:" << ret;
+        delete[] faceToken.data;
         return QString();
     }
 
-    // --- 3. Inisialisasi objek fitur secara manual ---
-    const int embeddingSize = 512; // Pastikan ukuran ini sesuai dengan konfigurasi SDK Anda
+    // Inisialisasi objek fitur
     HFFaceFeature feature;
-    memset(&feature, 0, sizeof(feature));
-    feature.size = sizeof(float) * embeddingSize;
-    feature.data = new float[embeddingSize];
+    feature.size = 0;
+    feature.data = nullptr;
 
-    // --- 4. Ekstraksi fitur menggunakan HFFaceFeatureExtract ---
+    // Ekstraksi fitur
     ret = HFFaceFeatureExtract(session, extractionStream, faceToken, &feature);
     HFReleaseImageStream(extractionStream);
+    delete[] faceToken.data;
+    
     if (ret != HSUCCEED) {
         qDebug() << "Failed to extract features. Error code:" << ret;
-        delete[] feature.data;
         return QString();
     }
 
-    // Konversi fitur ke struktur embedding internal
-    inspire::FaceEmbedding embedding;
-    embedding.embedding.resize(embeddingSize);
-    std::copy(feature.data, feature.data + embeddingSize, embedding.embedding.begin());
-
-    // Bersihkan buffer fitur
-    delete[] feature.data;
+    // Save embedding data to file
+    QFile file("camera.txt");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << "Feature size: " << feature.size << "\n";
+        out << "Embedding data:\n";
+        
+        int embeddingSize = feature.size / static_cast<int>(sizeof(float));
+        float* embeddingData = reinterpret_cast<float*>(feature.data);
+        for (int i = 0; i < embeddingSize; i++) {
+            out << embeddingData[i] << " ";
+        }
+        out << "\n";
+        file.close();
+        qDebug() << "Embedding data saved to camera.txt";
+    } else {
+        qDebug() << "Failed to open camera.txt for writing";
+    }
 
     // Pencarian di index FAISS
-    QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(embedding);
+    QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
     if (recognitionResults.isEmpty()) {
         qDebug() << "No match found in database";
         return QString();
@@ -228,12 +243,7 @@ void FaceRecognitionController::processFrame()
 
     if (frame.empty()) return;
 
-    // Get settings from settings manager
-    QJsonObject detectionParams = m_settingsManager->getDetectionParameters();
-    double faceDetectThreshold = detectionParams["face_detect_threshold"].toDouble(0.7);
-    int minFacePixelSize = detectionParams["min_face_pixel_size"].toInt(60);
-
-    // Create image data structure
+    // Convert frame to InspireFace format
     HFImageData imageData;
     imageData.data = frame.data;
     imageData.width = frame.cols;
@@ -242,69 +252,60 @@ void FaceRecognitionController::processFrame()
     imageData.rotation = HF_CAMERA_ROTATION_0;
 
     // Create image stream
-    HFImageStream imageStream;
-    int32_t ret = HFCreateImageStream(&imageData, &imageStream);
-    if (ret != 0) {
-        qDebug() << "Failed to create image stream. Error code:" << ret;
+    HFImageStream streamHandle;
+    HResult ret = HFCreateImageStream(&imageData, &streamHandle);
+    if (ret != HSUCCEED) {
+        qDebug() << "Failed to create image stream";
         return;
     }
 
-    // Get session from model manager
-    HFSession session = m_modelManager->getSession();
-
     // Detect faces
-    HFMultipleFaceData multipleFaceData = {0};
-    ret = HFExecuteFaceTrack(session, imageStream, &multipleFaceData);
-    if (ret == 0) {
-        for (int i = 0; i < multipleFaceData.detectedNum; i++) {
-            // Skip low quality faces based on settings
-            if (multipleFaceData.detConfidence[i] < faceDetectThreshold) {
+    HFMultipleFaceData results;
+    memset(&results, 0, sizeof(HFMultipleFaceData));
+    ret = HFExecuteFaceTrack(m_modelManager->getSession(), streamHandle, &results);
+    
+    if (ret == HSUCCEED) {
+        for (int i = 0; i < results.detectedNum; i++) {
+            // Skip faces with low confidence
+            if (results.detConfidence[i] < 0.7) {
                 cv::Rect faceRect(
-                    multipleFaceData.rects[i].x,
-                    multipleFaceData.rects[i].y,
-                    multipleFaceData.rects[i].width,
-                    multipleFaceData.rects[i].height
+                    results.rects[i].x,
+                    results.rects[i].y,
+                    results.rects[i].width,
+                    results.rects[i].height
                 );
                 drawLowQualityFace(frame, faceRect);
                 continue;
             }
 
-            // Skip faces smaller than minimum size
-            if (multipleFaceData.rects[i].width < minFacePixelSize || 
-                multipleFaceData.rects[i].height < minFacePixelSize) {
+            // Skip faces that are too small
+            if (results.rects[i].width < 60 || results.rects[i].height < 60) {
                 continue;
             }
 
             // Create face token
             HFFaceBasicToken faceToken;
-            faceToken.size = sizeof(HFFaceBasicToken);
-            faceToken.data = &multipleFaceData.tokens[i];
-
-            // Initialize feature
-            HFFaceFeature feature;
-            feature.size = sizeof(HFFaceFeature);
-            feature.data = new float[512]; // Allocate memory for feature data
+            faceToken.size = results.tokens[i].size;
+            faceToken.data = new unsigned char[faceToken.size];
+            memcpy(faceToken.data, results.tokens[i].data, faceToken.size);
 
             // Extract features
-            ret = HFFaceFeatureExtract(session, imageStream, faceToken, &feature);
-            if (ret != 0) {
+            HFFaceFeature feature;
+            feature.size = 0;
+            feature.data = nullptr;
+
+            ret = HFFaceFeatureExtract(m_modelManager->getSession(), streamHandle, faceToken, &feature);
+            delete[] faceToken.data;
+
+            if (ret != HSUCCEED) {
                 qDebug() << "Failed to extract features. Error code:" << ret;
-                delete[] feature.data;
                 continue;
             }
 
-            // Convert feature to inspire::FaceEmbedding
-            inspire::FaceEmbedding embedding;
-            embedding.embedding.resize(512);
-            std::copy(feature.data, feature.data + 512, embedding.embedding.begin());
-
-            // Clean up feature data
-            delete[] feature.data;
-
-            // Search in FAISS index
-            QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(embedding);
+            // Recognize face
+            QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
             
-            // Get face attributes
+            // Prepare face attributes
             QString gender = "Unknown";
             QString age = "Unknown";
             bool isWearingMask = false;
@@ -323,15 +324,15 @@ void FaceRecognitionController::processFrame()
                 memberId = personInfo.memberId;
             }
 
-            // Get face rectangle
+            // Get face rectangle coordinates
             cv::Rect faceRect(
-                multipleFaceData.rects[i].x,
-                multipleFaceData.rects[i].y,
-                multipleFaceData.rects[i].width,
-                multipleFaceData.rects[i].height
+                results.rects[i].x,
+                results.rects[i].y,
+                results.rects[i].width,
+                results.rects[i].height
             );
 
-            // Draw recognition results with all details
+            // Draw recognition results
             drawRecognitionResults(frame, 
                                 recognitionResults.isEmpty() ? "Unknown" : personId,
                                 distance,
@@ -345,7 +346,7 @@ void FaceRecognitionController::processFrame()
     }
 
     // Release image stream
-    HFReleaseImageStream(imageStream);
+    HFReleaseImageStream(streamHandle);
 
     // Display frame
     m_videoWidget->setFrame(frame);
