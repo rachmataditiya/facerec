@@ -217,11 +217,6 @@ void FaceRecognitionController::stopRecognition()
     }
 }
 
-bool FaceRecognitionController::isRunning() const
-{
-    return m_isRunning;
-}
-
 void FaceRecognitionController::processFrame()
 {
     if (!m_videoCapture || !m_videoCapture->isOpened()) {
@@ -321,10 +316,6 @@ void FaceRecognitionController::processFrame()
             QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
             
             // Prepare face attributes
-            QString gender = "Unknown";
-            QString age = "Unknown";
-            bool isWearingMask = false;
-            bool isLive = true;
             QString memberId = "";
             QString personId = "";
             float distance = 1.0f;
@@ -355,10 +346,6 @@ void FaceRecognitionController::processFrame()
                                 recognitionResults.isEmpty() ? "Unknown" : personId,
                                 distance,
                                 faceRect,
-                                gender,
-                                age,
-                                isWearingMask,
-                                isLive,
                                 memberId);
         }
     } else {
@@ -373,9 +360,7 @@ void FaceRecognitionController::processFrame()
 }
 
 void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
-                                                         const cv::Rect &faceRect, const QString &gender, 
-                                                         const QString &age, bool isWearingMask, bool isLive,
-                                                         const QString &memberId)
+                                                         const cv::Rect &faceRect, const QString &memberId)
 {
     // Gambar rectangle wajah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 255, 0), 2);

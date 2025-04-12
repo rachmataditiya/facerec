@@ -28,14 +28,12 @@ public:
 
     bool initialize();
     void shutdown();
+    bool isInitialized() const { return m_isInitialized; }
 
-    // Video source handling
+    QString recognizeFace(const QImage &image);
     bool startRecognition(int sourceIndex, const QString &streamUrl);
     void stopRecognition();
-    bool isRunning() const;
-
-    // Face recognition functions
-    QString recognizeFace(const QImage &image);
+    bool isRunning() const { return m_isRunning; }
 
 signals:
     void streamStopped(const QString &url);
@@ -44,10 +42,8 @@ private slots:
     void processFrame();
 
 private:
-    void drawRecognitionResults(cv::Mat &frame, const QString &name, float distance, 
-                              const cv::Rect &faceRect, const QString &gender, 
-                              const QString &age, bool isWearingMask, bool isLive,
-                              const QString &memberId);
+    void drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
+                               const cv::Rect &faceRect, const QString &memberId);
     void drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect);
 
     ModelManager* m_modelManager;
