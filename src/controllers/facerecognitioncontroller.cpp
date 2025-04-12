@@ -25,13 +25,28 @@ bool FaceRecognitionController::initialize()
 
     // Create cache directory if it doesn't exist
     QString cachePath = m_settingsManager->getFaissCachePath();
-    QDir().mkpath(cachePath);
+    QDir cacheDir(cachePath);
+    if (!cacheDir.exists()) {
+        if (!QDir().mkpath(cachePath)) {
+            qDebug() << "Failed to create cache directory:" << cachePath;
+            return false;
+        }
+    }
 
-    // Try to load existing index
-    if (!loadIndex()) {
-        // If no index exists, create a new one
+    // Check if cache is empty
+    QStringList files = cacheDir.entryList(QDir::Files);
+    bool cacheEmpty = files.isEmpty();
+
+    if (cacheEmpty || !loadIndex()) {
+        // If cache is empty or loading fails, create a new index
+        qDebug() << "Creating new Faiss index...";
         if (!createIndex()) {
             qDebug() << "Failed to create index";
+            return false;
+        }
+        // Save the empty index
+        if (!saveIndex()) {
+            qDebug() << "Failed to save initial empty index";
             return false;
         }
     }
@@ -167,7 +182,8 @@ bool FaceRecognitionController::removeFace(const QString &name)
 
     try {
         // Remove from index
-        m_index->remove_ids(&index, 1);
+        faiss::IDSelectorRange selector(index, index + 1);
+        m_index->remove_ids(selector);
         m_faceNames.remove(index);
         return saveIndex();
     } catch (const std::exception& e) {

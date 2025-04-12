@@ -10,6 +10,7 @@
 #include <QGroupBox>
 #include "../models/modelmanager.h"
 #include "../models/settingsmanager.h"
+#include "../models/faissmanager.h"
 #include "../controllers/facedetectioncontroller.h"
 #include "videowidget.h"
 
@@ -49,6 +50,7 @@ private:
     SettingsManager *m_settingsManager;
     ModelManager *m_modelManager;
     FaceDetectionController *m_faceDetectionController;
+    FaissManager *m_faissManager;
 
     void updateStreamComboBox();
     void updateStreamTable();

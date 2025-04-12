@@ -16,11 +16,18 @@ MainWindow::MainWindow(QWidget *parent)
     , m_settingsManager(new SettingsManager(this))
     , m_modelManager(nullptr)
     , m_faceDetectionController(nullptr)
+    , m_faissManager(nullptr)
 {
     ui->setupUi(this);
     
     // Initialize ModelManager after SettingsManager
     m_modelManager = new ModelManager(m_settingsManager, this);
+    
+    // Initialize FaissManager
+    m_faissManager = new FaissManager(m_settingsManager, this);
+    if (!m_faissManager->initialize()) {
+        qDebug() << "Gagal menginisialisasi FaissManager";
+    }
     
     // Hide stream combobox by default since camera is the default source
     ui->streamComboBox->setVisible(false);
@@ -88,6 +95,7 @@ MainWindow::~MainWindow()
 {
     delete ui;
     delete m_faceDetectionController;
+    delete m_faissManager;
 }
 
 void MainWindow::updateStreamComboBox()

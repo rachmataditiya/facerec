@@ -32,8 +32,14 @@ SettingsManager::~SettingsManager()
 
 void SettingsManager::initializeDefaultSettings()
 {
-    // Model settings
-    m_settings["modelPath"] = "";
+    QString homePath = QDir::homePath();
+    QString faissCachePath = QDir(homePath).filePath(".facerec/faiss_cache");
+    
+    // Create faiss cache directory if it doesn't exist
+    QDir().mkpath(faissCachePath);
+    
+    m_settings["modelPath"] = QDir(homePath).filePath(".inspireface/models");
+    m_settings["faissCachePath"] = faissCachePath;
     
     // Model parameters with default values
     QJsonObject defaultParams;
@@ -53,10 +59,6 @@ void SettingsManager::initializeDefaultSettings()
     defaultDetectionParams["track_mode_smooth_ratio"] = 0.7;
     defaultDetectionParams["filter_minimum_face_pixel_size"] = 60;
     m_settings["detectionParameters"] = defaultDetectionParams;
-    
-    // Faiss settings with default values
-    QString homePath = QDir::homePath();
-    m_settings["faissCachePath"] = QDir(homePath).filePath(".facerec/faiss_cache");
     
     // Initialize empty streams array
     m_settings["streams"] = QJsonArray();

@@ -20,15 +20,19 @@ UI_DIR = build/ui
 SOURCES += \
     main.cpp \
     src/controllers/facedetectioncontroller.cpp \
+    src/controllers/facerecognitioncontroller.cpp \
     src/models/modelmanager.cpp \
     src/models/settingsmanager.cpp \
+    src/models/faissmanager.cpp \
     src/ui/mainwindow.cpp \
     src/ui/videowidget.cpp
 
 HEADERS += \
     src/controllers/facedetectioncontroller.h \
+    src/controllers/facerecognitioncontroller.h \
     src/models/modelmanager.h \
     src/models/settingsmanager.h \
+    src/models/faissmanager.h \
     src/ui/mainwindow.h \
     src/ui/videowidget.h
 
@@ -65,7 +69,8 @@ LIBS += \
     -lopencv_objdetect \
     -lopencv_face \
     -L$$PWD/InspireFace/lib \
-    -lInspireFace
+    -lInspireFace \
+    -L/opt/homebrew/lib -lfaiss
 
 # Mac specific configurations
 macx {
