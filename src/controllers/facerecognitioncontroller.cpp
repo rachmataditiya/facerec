@@ -87,19 +87,11 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     faceToken.size = sizeof(HFFaceBasicToken);
     faceToken.data = &multipleFaceData.tokens[0];
 
-    // Create and extract features
+    // Extract features
     HFFaceFeature feature;
-    ret = HFCreateFaceFeature(&feature);
-    if (ret != 0) {
-        qDebug() << "Failed to create face feature. Error code:" << ret;
-        HFReleaseImageStream(imageStream);
-        return QString();
-    }
-
-    ret = HFFaceFeatureExtractTo(session, imageStream, faceToken, feature);
+    ret = HFFaceFeatureExtract(session, imageStream, faceToken, &feature);
     if (ret != 0) {
         qDebug() << "Failed to extract features. Error code:" << ret;
-        HFReleaseFaceFeature(&feature);
         HFReleaseImageStream(imageStream);
         return QString();
     }
@@ -113,7 +105,6 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(embedding);
     if (recognitionResults.isEmpty()) {
         qDebug() << "No match found in database";
-        HFReleaseFaceFeature(&feature);
         HFReleaseImageStream(imageStream);
         return QString();
     }
@@ -122,12 +113,10 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     QPair<QString, float> bestMatch = recognitionResults.first();
     if (bestMatch.second < 0.75) { // Increased threshold for better accuracy
         qDebug() << "Best match similarity too low:" << bestMatch.second;
-        HFReleaseFaceFeature(&feature);
         HFReleaseImageStream(imageStream);
         return QString();
     }
 
-    HFReleaseFaceFeature(&feature);
     HFReleaseImageStream(imageStream);
     return bestMatch.first;
 }
@@ -266,18 +255,11 @@ void FaceRecognitionController::processFrame()
             faceToken.size = sizeof(HFFaceBasicToken);
             faceToken.data = &multipleFaceData.tokens[i];
 
-            // Create and extract features
+            // Extract features
             HFFaceFeature feature;
-            ret = HFCreateFaceFeature(&feature);
-            if (ret != 0) {
-                qDebug() << "Failed to create face feature. Error code:" << ret;
-                continue;
-            }
-
-            ret = HFFaceFeatureExtractTo(session, imageStream, faceToken, feature);
+            ret = HFFaceFeatureExtract(session, imageStream, faceToken, &feature);
             if (ret != 0) {
                 qDebug() << "Failed to extract features. Error code:" << ret;
-                HFReleaseFaceFeature(&feature);
                 continue;
             }
 
@@ -326,8 +308,6 @@ void FaceRecognitionController::processFrame()
                                 isWearingMask,
                                 isLive,
                                 memberId);
-
-            HFReleaseFaceFeature(&feature);
         }
     }
 
