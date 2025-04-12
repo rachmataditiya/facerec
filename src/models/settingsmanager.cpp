@@ -54,6 +54,10 @@ void SettingsManager::initializeDefaultSettings()
     defaultDetectionParams["filter_minimum_face_pixel_size"] = 60;
     m_settings["detectionParameters"] = defaultDetectionParams;
     
+    // Faiss settings with default values
+    QString homePath = QDir::homePath();
+    m_settings["faissCachePath"] = QDir(homePath).filePath(".facerec/faiss_cache");
+    
     // Initialize empty streams array
     m_settings["streams"] = QJsonArray();
 }
@@ -117,6 +121,10 @@ bool SettingsManager::loadSettings()
             }
         }
         loadedSettings["detectionParameters"] = loadedParams;
+    }
+    
+    if (!loadedSettings.contains("faissCachePath")) {
+        loadedSettings["faissCachePath"] = m_settings["faissCachePath"];
     }
     
     m_settings = loadedSettings;
@@ -227,4 +235,15 @@ void SettingsManager::setDetectionParameters(const QJsonObject &params)
 QJsonObject SettingsManager::getDetectionParameters() const
 {
     return m_settings["detectionParameters"].toObject();
+}
+
+QString SettingsManager::getFaissCachePath() const
+{
+    return m_settings["faissCachePath"].toString();
+}
+
+void SettingsManager::setFaissCachePath(const QString &path)
+{
+    m_settings["faissCachePath"] = path;
+    saveSettings();
 } 

@@ -47,7 +47,7 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Connect signals and slots
     connect(ui->modelPathButton, &QPushButton::clicked, this, &MainWindow::onModelPathButtonClicked);
-    connect(ui->loadModelButton, &QPushButton::clicked, this, &MainWindow::onLoadModelClicked);
+    connect(ui->loadModelButton, &QPushButton::clicked, this, &MainWindow::onLoadModelButtonClicked);
     connect(ui->modelListWidget, &QListWidget::itemSelectionChanged, this, &MainWindow::onModelSelectionChanged);
     connect(ui->sourceComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onSourceChanged);
     connect(ui->streamComboBox, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &MainWindow::onStreamSelected);
@@ -58,23 +58,30 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->streamTable, &QTableWidget::cellChanged, this, &MainWindow::onStreamTableChanged);
     
     // Connect parameter change signals
-    connect(ui->enableRecognitionCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableMaskDetectCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableFaceAttributeCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableFaceQualityCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableIrLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableInteractionLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
-    connect(ui->enableDetectModeLandmarkCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onParameterChanged);
+    connect(ui->enableRecognitionCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableMaskDetectCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableFaceAttributeCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableFaceQualityCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableIrLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableInteractionLivenessCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
+    connect(ui->enableDetectModeLandmarkCheck, &QCheckBox::checkStateChanged, this, &MainWindow::onModelParameterChanged);
     
     // Connect detection parameter change signals
     connect(ui->faceDetectThresholdSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
     connect(ui->trackModeSmoothRatioSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
     connect(ui->filterMinimumFacePixelSizeSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
             
+    // Connect Faiss settings signals
+    connect(ui->faissCachePathButton, &QPushButton::clicked,
+            this, &MainWindow::onFaissCachePathButtonClicked);
+    connect(ui->saveFaissSettingsButton, &QPushButton::clicked,
+            this, &MainWindow::onSaveFaissSettingsButtonClicked);
+    
     // Load saved parameters
     loadModelParameters();
     loadDetectionParameters();
+    loadFaissSettings();
 }
 
 MainWindow::~MainWindow()
@@ -212,7 +219,7 @@ void MainWindow::onModelPathButtonClicked()
     }
 }
 
-void MainWindow::onLoadModelClicked()
+void MainWindow::onLoadModelButtonClicked()
 {
     if (m_modelManager->isModelLoaded()) {
         m_modelManager->unloadModel();
@@ -273,7 +280,7 @@ void MainWindow::loadModelParameters()
     ui->enableDetectModeLandmarkCheck->setChecked(params["enable_detect_mode_landmark"].toInt() == 1);
 }
 
-void MainWindow::onParameterChanged()
+void MainWindow::onModelParameterChanged()
 {
     QJsonObject params;
     params["enable_recognition"] = ui->enableRecognitionCheck->isChecked() ? 1 : 0;
@@ -322,4 +329,28 @@ void MainWindow::onDetectionParameterChanged()
         m_modelManager->unloadModel();
         m_modelManager->loadModel();
     }
+}
+
+void MainWindow::loadFaissSettings()
+{
+    QString cachePath = m_settingsManager->getFaissCachePath();
+    ui->faissCachePathEdit->setText(cachePath);
+}
+
+void MainWindow::onFaissCachePathButtonClicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(this, "Select Faiss Cache Directory",
+                                                  ui->faissCachePathEdit->text());
+    if (!dir.isEmpty()) {
+        ui->faissCachePathEdit->setText(dir);
+    }
+}
+
+void MainWindow::onSaveFaissSettingsButtonClicked()
+{
+    QString cachePath = ui->faissCachePathEdit->text();
+    m_settingsManager->setFaissCachePath(cachePath);
+    
+    // Show success message
+    QMessageBox::information(this, "Settings Saved", "Faiss cache settings have been saved successfully.");
 } 

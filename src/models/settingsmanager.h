@@ -30,6 +30,10 @@ public:
     void setDetectionParameters(const QJsonObject &params);
     QJsonObject getDetectionParameters() const;
 
+    // Faiss settings
+    QString getFaissCachePath() const;
+    void setFaissCachePath(const QString &path);
+
     // Stream settings
     void addStream(const QString &name, const QString &url);
     void removeStream(int index);

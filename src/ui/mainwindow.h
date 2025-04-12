@@ -27,7 +27,11 @@ public:
 
 private slots:
     void onModelPathButtonClicked();
-    void onLoadModelClicked();
+    void onLoadModelButtonClicked();
+    void onModelParameterChanged();
+    void onDetectionParameterChanged();
+    void onFaissCachePathButtonClicked();
+    void onSaveFaissSettingsButtonClicked();
     void onModelSelectionChanged();
     void onSourceChanged(int index);
     void onStreamSelected(int index);
@@ -36,10 +40,9 @@ private slots:
     void onAddStreamClicked();
     void onRemoveStreamClicked();
     void onStreamTableChanged(int row, int column);
-    void onParameterChanged();
-    void onDetectionParameterChanged();
     void loadModelParameters();
     void loadDetectionParameters();
+    void loadFaissSettings();
 
 private:
     Ui::MainWindow *ui;
