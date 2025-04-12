@@ -1,5 +1,4 @@
-#ifndef FAISSMANAGER_H
-#define FAISSMANAGER_H
+#pragma once
 
 #include <QObject>
 #include <QString>
@@ -14,10 +13,16 @@
 #include <QJsonDocument>
 #include <QDebug>
 
+// PostgreSQL
+#include <libpq-fe.h>
+
+// FAISS
 #include <faiss/IndexFlat.h>
 #include <faiss/Index.h>
 #include <faiss/IndexIDMap.h>
 #include <faiss/impl/IDSelector.h>
+
+// InspireFace
 #include <inspireface/inspireface.hpp>
 
 class SettingsManager;
@@ -46,7 +51,7 @@ public:
     bool addFace(const QString &personId, const inspire::FaceEmbedding &embedding, const QString &rowId);
     bool removeFace(const QString &personId);
     QVector<QPair<QString, float>> recognizeFace(const inspire::FaceEmbedding &embedding);
-    QVector<QString> getAllFaces() const;
+    QStringList getAllFaces() const;
 
     bool loadPersonInfo();
     PersonInfo getPersonInfo(const QString &personId) const;
@@ -56,7 +61,7 @@ private:
     static const int BATCH_SIZE = 1000;
 
     SettingsManager* m_settingsManager;
-    faiss::IndexFlatIP *m_index;
+    faiss::Index* m_index;
     QMap<int, QString> m_idMap;
     QSet<QString> m_rowIds;
     QMap<QString, PersonInfo> m_personInfo;
@@ -68,10 +73,11 @@ private:
     QString m_idMapPath;
     QString m_rowIdPath;
     QString m_personInfoPath;
+    PGconn* m_pgConn;
 
-    QVector<float> parseEmbedding(const QJsonArray &embedding) const;
+    bool connectToDatabase();
+    void disconnectFromDatabase();
+    QVector<float> parseEmbedding(const QString &embeddingStr);
     bool saveToFile(const QString &path, const QByteArray &data) const;
     QByteArray loadFromFile(const QString &path) const;
 };
-
-#endif // FAISSMANAGER_H 

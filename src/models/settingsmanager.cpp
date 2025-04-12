@@ -315,4 +315,29 @@ void SettingsManager::setSupabaseSettings(const QJsonObject &settings)
 QJsonObject SettingsManager::getSupabaseSettings() const
 {
     return m_settings["supabaseSettings"].toObject();
+}
+
+QString SettingsManager::getPostgresHost() const
+{
+    return m_settings["postgresSettings"].toObject()["host"].toString("localhost");
+}
+
+int SettingsManager::getPostgresPort() const
+{
+    return m_settings["postgresSettings"].toObject()["port"].toInt(5432);
+}
+
+QString SettingsManager::getPostgresDatabase() const
+{
+    return m_settings["postgresSettings"].toObject()["database"].toString("facerec");
+}
+
+QString SettingsManager::getPostgresUsername() const
+{
+    return m_settings["postgresSettings"].toObject()["username"].toString("postgres");
+}
+
+QString SettingsManager::getPostgresPassword() const
+{
+    return m_settings["postgresSettings"].toObject()["password"].toString("");
 } 

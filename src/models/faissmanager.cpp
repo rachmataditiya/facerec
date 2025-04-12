@@ -13,6 +13,7 @@ FaissManager::FaissManager(SettingsManager* settingsManager, QObject *parent)
     , m_settingsManager(settingsManager)
     , m_index(nullptr)
     , m_isInitialized(false)
+    , m_pgConn(nullptr)
 {
     // Setup paths using settings
     m_dataDir = m_settingsManager->getFaissCachePath();
@@ -71,13 +72,15 @@ bool FaissManager::loadCachedIndex()
         for (const QString &file : requiredFiles) {
             if (!QFile::exists(file)) {
                 qDebug() << "Cache file missing:" << file;
-                return false;
+                qDebug() << "Building new index from database...";
+                return createIndex() && refreshIndex(false);  // false for full refresh
             }
             
             QFileInfo fileInfo(file);
             if (fileInfo.size() == 0) {
                 qDebug() << "Cache file empty:" << file;
-                return false;
+                qDebug() << "Building new index from database...";
+                return createIndex() && refreshIndex(false);  // false for full refresh
             }
         }
 
@@ -135,6 +138,9 @@ bool FaissManager::loadCachedIndex()
                 }
             }
             m_index->add(numVectors, vectors.data());
+        } else {
+            qDebug() << "Cache is empty, loading from database...";
+            return refreshIndex(false);  // false for full refresh
         }
 
         // Load person info if exists
@@ -157,6 +163,13 @@ bool FaissManager::loadCachedIndex()
         }
 
         qDebug() << "Cache loaded:" << m_index->ntotal << "vectors";
+        
+        // If cache is empty or very small compared to database, refresh from database
+        if (m_index->ntotal == 0) {
+            qDebug() << "Cache is empty, loading from database...";
+            return refreshIndex(false);  // false for full refresh
+        }
+
         return true;
 
     } catch (const std::exception& e) {
@@ -168,7 +181,9 @@ bool FaissManager::loadCachedIndex()
                 QFile::remove(file);
             }
         }
-        return false;
+        // Try to build new index from database
+        qDebug() << "Building new index from database...";
+        return createIndex() && refreshIndex(false);  // false for full refresh
     }
 }
 
@@ -257,9 +272,273 @@ bool FaissManager::createIndex()
     }
 }
 
+bool FaissManager::connectToDatabase()
+{
+    if (m_pgConn && PQstatus(m_pgConn) == CONNECTION_OK) {
+        qDebug() << "🔄 Using existing PostgreSQL connection";
+        return true;
+    }
+
+    qDebug() << "🔌 Connecting to PostgreSQL...";
+    QString connInfo = QString(
+        "host=%1 port=%2 dbname=%3 user=%4 password=%5"
+    ).arg(
+        m_settingsManager->getPostgresHost(),
+        QString::number(m_settingsManager->getPostgresPort()),
+        m_settingsManager->getPostgresDatabase(),
+        m_settingsManager->getPostgresUsername(),
+        m_settingsManager->getPostgresPassword()
+    );
+
+    qDebug() << "🔑 Connection info:" << connInfo;
+
+    m_pgConn = PQconnectdb(connInfo.toUtf8().constData());
+    ConnStatusType status = PQstatus(m_pgConn);
+    if (status != CONNECTION_OK) {
+        qDebug() << "❌ Failed to connect to PostgreSQL:";
+        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
+        qDebug() << "  • Status:" << (status == CONNECTION_OK ? "OK" :
+                                    status == CONNECTION_BAD ? "BAD" :
+                                    status == CONNECTION_STARTED ? "STARTED" :
+                                    status == CONNECTION_MADE ? "MADE" :
+                                    status == CONNECTION_AWAITING_RESPONSE ? "AWAITING_RESPONSE" :
+                                    status == CONNECTION_AUTH_OK ? "AUTH_OK" :
+                                    status == CONNECTION_SETENV ? "SETENV" :
+                                    status == CONNECTION_SSL_STARTUP ? "SSL_STARTUP" :
+                                    status == CONNECTION_NEEDED ? "NEEDED" : "UNKNOWN");
+        qDebug() << "  • DB name:" << PQdb(m_pgConn);
+        qDebug() << "  • User:" << PQuser(m_pgConn);
+        qDebug() << "  • Host:" << PQhost(m_pgConn);
+        qDebug() << "  • Port:" << PQport(m_pgConn);
+        return false;
+    }
+    qDebug() << "✅ Connected to PostgreSQL successfully";
+    return true;
+}
+
+void FaissManager::disconnectFromDatabase()
+{
+    if (m_pgConn) {
+        PQfinish(m_pgConn);
+        m_pgConn = nullptr;
+    }
+}
+
 bool FaissManager::loadPersonInfo()
 {
-    // TODO: Implement loading person info from database
+    if (!connectToDatabase()) {
+        return false;
+    }
+
+    qDebug() << "📚 Loading person info from database...";
+    const char* query = "SELECT id, name, member_id FROM persons";
+    PGresult* res = PQexec(m_pgConn, query);
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        qDebug() << "❌ Failed to query persons:" << PQerrorMessage(m_pgConn);
+        PQclear(res);
+        return false;
+    }
+
+    m_personInfo.clear();
+    int rows = PQntuples(res);
+    for (int i = 0; i < rows; i++) {
+        QString id = QString(PQgetvalue(res, i, 0));
+        PersonInfo info;
+        info.name = QString(PQgetvalue(res, i, 1));
+        info.memberId = QString(PQgetvalue(res, i, 2));
+        m_personInfo[id] = info;
+    }
+
+    qDebug() << "✅ Loaded" << rows << "persons from database";
+    qDebug() << "👥 Person details:";
+    qDebug() << "  • Total persons:" << m_personInfo.size();
+    qDebug() << "  • With member ID:" << std::count_if(m_personInfo.begin(), m_personInfo.end(), 
+        [](const PersonInfo& info) { return !info.memberId.isEmpty(); });
+    qDebug() << "  • With name:" << std::count_if(m_personInfo.begin(), m_personInfo.end(), 
+        [](const PersonInfo& info) { return !info.name.isEmpty(); });
+
+    PQclear(res);
+    return true;
+}
+
+QVector<float> FaissManager::parseEmbedding(const QString &embeddingStr)
+{
+    QJsonDocument doc = QJsonDocument::fromJson(embeddingStr.toUtf8());
+    if (!doc.isArray()) {
+        return {};
+    }
+
+    QJsonArray arr = doc.array();
+    if (arr.size() != EMBEDDING_DIM) {
+        qDebug() << "Invalid embedding dimension:" << arr.size();
+        return {};
+    }
+
+    QVector<float> vec(EMBEDDING_DIM);
+    for (int i = 0; i < EMBEDDING_DIM; i++) {
+        vec[i] = arr[i].toDouble();
+    }
+    return vec;
+}
+
+bool FaissManager::refreshIndex(bool incremental)
+{
+    if (!connectToDatabase()) {
+        return false;
+    }
+
+    // Verify connection is still valid
+    if (PQstatus(m_pgConn) != CONNECTION_OK) {
+        qDebug() << "❌ Database connection lost";
+        return false;
+    }
+
+    qDebug() << "🔄 Refreshing FAISS index..." << (incremental ? "(incremental)" : "(full)");
+
+    // Get total count from database
+    const char* countQuery = "SELECT COUNT(*) FROM person_embeddings";
+    qDebug() << "🔍 Executing count query:" << countQuery;
+    
+    PGresult* countRes = PQexec(m_pgConn, countQuery);
+    if (PQresultStatus(countRes) != PGRES_TUPLES_OK) {
+        qDebug() << "❌ Failed to get count:";
+        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
+        qDebug() << "  • Status:" << PQresStatus(PQresultStatus(countRes));
+        PQclear(countRes);
+        return false;
+    }
+    int dbCount = QString(PQgetvalue(countRes, 0, 0)).toInt();
+    PQclear(countRes);
+
+    qDebug() << "📊 Database stats:";
+    qDebug() << "  • Total embeddings in DB:" << dbCount;
+    qDebug() << "  • Total vectors in FAISS:" << m_index->ntotal;
+    qDebug() << "  • Total unique persons:" << m_personInfo.size();
+    qDebug() << "  • Average embeddings per person:" 
+             << (m_personInfo.size() > 0 ? QString::number(static_cast<double>(dbCount) / m_personInfo.size(), 'f', 1) : "0");
+
+    // Prepare query
+    QString queryStr = "SELECT id, face_embedding, person_id, created_at FROM person_embeddings";
+    if (incremental && m_lastSyncTime.isValid()) {
+        queryStr += " WHERE created_at > $1";
+        qDebug() << "🕒 Loading embeddings since:" << m_lastSyncTime.toString(Qt::ISODate);
+    }
+    queryStr += " ORDER BY created_at DESC";
+
+    qDebug() << "🔍 Executing query:" << queryStr;
+
+    // Convert query to UTF-8 and ensure it's properly terminated
+    QByteArray queryBytes = queryStr.toUtf8();
+    const char* query = queryBytes.constData();
+
+    PGresult* res;
+    if (incremental && m_lastSyncTime.isValid()) {
+        QByteArray paramBytes = m_lastSyncTime.toString(Qt::ISODate).toUtf8();
+        const char* params[1] = { paramBytes.constData() };
+        res = PQexecParams(m_pgConn, query, 1, nullptr, params, nullptr, nullptr, 0);
+    } else {
+        res = PQexec(m_pgConn, query);
+    }
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        qDebug() << "❌ Failed to query embeddings:";
+        qDebug() << "  • Error message:" << PQerrorMessage(m_pgConn);
+        qDebug() << "  • Status code:" << PQresultStatus(res);
+        qDebug() << "  • Status text:" << PQresStatus(PQresultStatus(res));
+        qDebug() << "  • Connection status:" << PQstatus(m_pgConn);
+        qDebug() << "  • DB name:" << PQdb(m_pgConn);
+        qDebug() << "  • User:" << PQuser(m_pgConn);
+        qDebug() << "  • Host:" << PQhost(m_pgConn);
+        qDebug() << "  • Port:" << PQport(m_pgConn);
+        qDebug() << "  • Query:" << queryStr;
+        PQclear(res);
+        return false;
+    }
+
+    int rows = PQntuples(res);
+    qDebug() << "📥 Processing" << rows << "embeddings...";
+
+    int newCount = 0;
+    int skippedCount = 0;
+    int errorCount = 0;
+    QSet<QString> uniquePersons;
+
+    std::vector<float> vectors;
+    vectors.reserve(rows * EMBEDDING_DIM);
+
+    for (int row = 0; row < rows; row++) {
+        QString rowId = QString(PQgetvalue(res, row, 0));
+        if (m_rowIds.contains(rowId)) {
+            skippedCount++;
+            continue;
+        }
+
+        QString embeddingStr = QString(PQgetvalue(res, row, 1));
+        QString personId = QString(PQgetvalue(res, row, 2));
+        QString createdAt = QString(PQgetvalue(res, row, 3));
+
+        QVector<float> vec = parseEmbedding(embeddingStr);
+        if (vec.isEmpty()) {
+            errorCount++;
+            continue;
+        }
+
+        // Normalize vector
+        float norm = 0.0f;
+        for (float v : vec) {
+            norm += v * v;
+        }
+        norm = std::sqrt(norm);
+        if (norm > 0.0f) {
+            for (float &v : vec) {
+                v /= norm;
+            }
+        }
+
+        vectors.insert(vectors.end(), vec.begin(), vec.end());
+        m_idMap[m_index->ntotal] = personId;
+        m_rowIds.insert(rowId);
+        newCount++;
+
+        QDateTime dt = QDateTime::fromString(createdAt, Qt::ISODate);
+        if (!m_lastSyncTime.isValid() || dt > m_lastSyncTime) {
+            m_lastSyncTime = dt;
+        }
+
+        uniquePersons.insert(personId);
+    }
+
+    qDebug() << "📥 Processing results:";
+    qDebug() << "  ✅ Added:" << newCount << "vectors";
+    qDebug() << "  ⏭️ Skipped:" << skippedCount << "vectors (already exists)";
+    qDebug() << "  ❌ Errors:" << errorCount << "vectors";
+    qDebug() << "  👥 Unique persons in batch:" << uniquePersons.size();
+    qDebug() << "  📚 Total vectors in FAISS:" << m_index->ntotal;
+    qDebug() << "  📈 Coverage:" << QString::number(static_cast<double>(m_index->ntotal) / dbCount * 100, 'f', 1) << "%";
+    qDebug() << "  📊 Batch stats:";
+    qDebug() << "    • Total processed:" << rows;
+    qDebug() << "    • Success rate:" << QString::number(static_cast<double>(newCount) / rows * 100, 'f', 1) << "%";
+    qDebug() << "    • Error rate:" << QString::number(static_cast<double>(errorCount) / rows * 100, 'f', 1) << "%";
+
+    PQclear(res);
+
+    if (newCount > 0) {
+        qDebug() << "💾 Saving cache...";
+        m_index->add(newCount, vectors.data());
+        if (saveCache()) {
+            qDebug() << "✅ Cache saved successfully with" << m_index->ntotal << "vectors";
+            qDebug() << "📊 Final stats:";
+            qDebug() << "  • Total vectors in FAISS:" << m_index->ntotal;
+            qDebug() << "  • Total unique persons:" << m_personInfo.size();
+            qDebug() << "  • Coverage:" << QString::number(static_cast<double>(m_index->ntotal) / dbCount * 100, 'f', 1) << "%";
+        } else {
+            qDebug() << "❌ Failed to save cache";
+        }
+    } else {
+        qDebug() << "ℹ️ No new embeddings found";
+    }
+
     return true;
 }
 
@@ -382,13 +661,6 @@ QStringList FaissManager::getAllFaces() const
         uniqueFaces.insert(personId);
     }
     return uniqueFaces.values();
-}
-
-bool FaissManager::refreshIndex(bool incremental)
-{
-    // TODO: Implement index refresh from database
-    Q_UNUSED(incremental)
-    return true;
 }
 
 PersonInfo FaissManager::getPersonInfo(const QString &personId) const

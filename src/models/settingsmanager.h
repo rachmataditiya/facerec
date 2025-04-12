@@ -37,6 +37,11 @@ public:
     // PostgreSQL settings
     void setPostgresSettings(const QJsonObject &settings);
     QJsonObject getPostgresSettings() const;
+    QString getPostgresHost() const;
+    int getPostgresPort() const;
+    QString getPostgresDatabase() const;
+    QString getPostgresUsername() const;
+    QString getPostgresPassword() const;
 
     // Supabase settings
     void setSupabaseSettings(const QJsonObject &settings);
