@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QPalette>
 #include <QColor>
+#include <libpq-fe.h>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -82,13 +83,16 @@ MainWindow::MainWindow(QWidget *parent)
     // Connect Faiss settings signals
     connect(ui->faissCachePathButton, &QPushButton::clicked,
             this, &MainWindow::onFaissCachePathButtonClicked);
-    connect(ui->saveFaissSettingsButton, &QPushButton::clicked,
-            this, &MainWindow::onSaveFaissSettingsButtonClicked);
+    connect(ui->saveAllSettingsButton, &QPushButton::clicked,
+            this, &MainWindow::onSaveAllSettingsButtonClicked);
+    connect(ui->postgresTestButton, &QPushButton::clicked,
+            this, &MainWindow::onPostgresTestButtonClicked);
     
     // Load saved parameters
     loadModelParameters();
     loadDetectionParameters();
     loadFaissSettings();
+    loadDatabaseSettings();
 }
 
 MainWindow::~MainWindow()
@@ -341,8 +345,23 @@ void MainWindow::onDetectionParameterChanged()
 
 void MainWindow::loadFaissSettings()
 {
-    QString cachePath = m_settingsManager->getFaissCachePath();
-    ui->faissCachePathEdit->setText(cachePath);
+    ui->faissCachePathEdit->setText(m_settingsManager->getFaissCachePath());
+}
+
+void MainWindow::loadDatabaseSettings()
+{
+    // Load PostgreSQL settings
+    QJsonObject postgresSettings = m_settingsManager->getPostgresSettings();
+    ui->postgresHostEdit->setText(postgresSettings["host"].toString());
+    ui->postgresPortSpin->setValue(postgresSettings["port"].toInt());
+    ui->postgresDatabaseEdit->setText(postgresSettings["database"].toString());
+    ui->postgresUsernameEdit->setText(postgresSettings["username"].toString());
+    ui->postgresPasswordEdit->setText(postgresSettings["password"].toString());
+
+    // Load Supabase settings
+    QJsonObject supabaseSettings = m_settingsManager->getSupabaseSettings();
+    ui->supabaseUrlEdit->setText(supabaseSettings["url"].toString());
+    ui->supabaseKeyEdit->setText(supabaseSettings["key"].toString());
 }
 
 void MainWindow::onFaissCachePathButtonClicked()
@@ -354,11 +373,63 @@ void MainWindow::onFaissCachePathButtonClicked()
     }
 }
 
-void MainWindow::onSaveFaissSettingsButtonClicked()
+void MainWindow::onSaveAllSettingsButtonClicked()
 {
+    // Save PostgreSQL settings
+    QJsonObject postgresSettings;
+    postgresSettings["host"] = ui->postgresHostEdit->text();
+    postgresSettings["port"] = ui->postgresPortSpin->value();
+    postgresSettings["database"] = ui->postgresDatabaseEdit->text();
+    postgresSettings["username"] = ui->postgresUsernameEdit->text();
+    postgresSettings["password"] = ui->postgresPasswordEdit->text();
+    m_settingsManager->setPostgresSettings(postgresSettings);
+
+    // Save Supabase settings
+    QJsonObject supabaseSettings;
+    supabaseSettings["url"] = ui->supabaseUrlEdit->text();
+    supabaseSettings["key"] = ui->supabaseKeyEdit->text();
+    m_settingsManager->setSupabaseSettings(supabaseSettings);
+
+    // Save Faiss settings
     QString cachePath = ui->faissCachePathEdit->text();
     m_settingsManager->setFaissCachePath(cachePath);
     
+    // Save all settings to file
+    m_settingsManager->saveSettings();
+    
     // Show success message
-    QMessageBox::information(this, "Settings Saved", "Faiss cache settings have been saved successfully.");
+    QMessageBox::information(this, "Settings Saved", "All settings have been saved successfully.");
+}
+
+void MainWindow::onPostgresTestButtonClicked()
+{
+    // Get PostgreSQL connection settings
+    QString host = ui->postgresHostEdit->text();
+    int port = ui->postgresPortSpin->value();
+    QString database = ui->postgresDatabaseEdit->text();
+    QString username = ui->postgresUsernameEdit->text();
+    QString password = ui->postgresPasswordEdit->text();
+
+    // Create PostgreSQL connection string
+    QString connStr = QString(
+        "host='%1' port='%2' dbname='%3' user='%4' password='%5'")
+        .arg(host)
+        .arg(port)
+        .arg(database)
+        .arg(username)
+        .arg(password);
+
+    // Test connection using PQconnectdb
+    PGconn *conn = PQconnectdb(connStr.toStdString().c_str());
+
+    if (PQstatus(conn) == CONNECTION_OK) {
+        QMessageBox::information(this, "Connection Test",
+            "Successfully connected to PostgreSQL database!");
+        PQfinish(conn);
+    } else {
+        QString errorMessage = QString::fromStdString(PQerrorMessage(conn));
+        QMessageBox::critical(this, "Connection Test",
+            "Failed to connect to PostgreSQL database:\n" + errorMessage);
+        PQfinish(conn);
+    }
 } 

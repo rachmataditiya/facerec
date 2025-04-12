@@ -41,6 +41,21 @@ void SettingsManager::initializeDefaultSettings()
     m_settings["modelPath"] = QDir(homePath).filePath(".inspireface/models");
     m_settings["faissCachePath"] = faissCachePath;
     
+    // PostgreSQL settings with default values
+    QJsonObject defaultPostgresSettings;
+    defaultPostgresSettings["host"] = "localhost";
+    defaultPostgresSettings["port"] = 5432;
+    defaultPostgresSettings["database"] = "facerec";
+    defaultPostgresSettings["username"] = "postgres";
+    defaultPostgresSettings["password"] = "";
+    m_settings["postgresSettings"] = defaultPostgresSettings;
+    
+    // Supabase settings with default values
+    QJsonObject defaultSupabaseSettings;
+    defaultSupabaseSettings["url"] = "";
+    defaultSupabaseSettings["key"] = "";
+    m_settings["supabaseSettings"] = defaultSupabaseSettings;
+    
     // Model parameters with default values
     QJsonObject defaultParams;
     defaultParams["enable_recognition"] = 1;
@@ -127,6 +142,36 @@ bool SettingsManager::loadSettings()
     
     if (!loadedSettings.contains("faissCachePath")) {
         loadedSettings["faissCachePath"] = m_settings["faissCachePath"];
+    }
+
+    // Load PostgreSQL settings
+    if (!loadedSettings.contains("postgresSettings")) {
+        loadedSettings["postgresSettings"] = m_settings["postgresSettings"];
+    } else {
+        // Ensure all PostgreSQL settings exist
+        QJsonObject defaultParams = m_settings["postgresSettings"].toObject();
+        QJsonObject loadedParams = loadedSettings["postgresSettings"].toObject();
+        for (auto it = defaultParams.begin(); it != defaultParams.end(); ++it) {
+            if (!loadedParams.contains(it.key())) {
+                loadedParams[it.key()] = it.value();
+            }
+        }
+        loadedSettings["postgresSettings"] = loadedParams;
+    }
+
+    // Load Supabase settings
+    if (!loadedSettings.contains("supabaseSettings")) {
+        loadedSettings["supabaseSettings"] = m_settings["supabaseSettings"];
+    } else {
+        // Ensure all Supabase settings exist
+        QJsonObject defaultParams = m_settings["supabaseSettings"].toObject();
+        QJsonObject loadedParams = loadedSettings["supabaseSettings"].toObject();
+        for (auto it = defaultParams.begin(); it != defaultParams.end(); ++it) {
+            if (!loadedParams.contains(it.key())) {
+                loadedParams[it.key()] = it.value();
+            }
+        }
+        loadedSettings["supabaseSettings"] = loadedParams;
     }
     
     m_settings = loadedSettings;
@@ -248,4 +293,26 @@ void SettingsManager::setFaissCachePath(const QString &path)
 {
     m_settings["faissCachePath"] = path;
     saveSettings();
+}
+
+void SettingsManager::setPostgresSettings(const QJsonObject &settings)
+{
+    m_settings["postgresSettings"] = settings;
+    saveSettings();
+}
+
+QJsonObject SettingsManager::getPostgresSettings() const
+{
+    return m_settings["postgresSettings"].toObject();
+}
+
+void SettingsManager::setSupabaseSettings(const QJsonObject &settings)
+{
+    m_settings["supabaseSettings"] = settings;
+    saveSettings();
+}
+
+QJsonObject SettingsManager::getSupabaseSettings() const
+{
+    return m_settings["supabaseSettings"].toObject();
 } 

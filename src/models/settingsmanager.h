@@ -34,6 +34,14 @@ public:
     QString getFaissCachePath() const;
     void setFaissCachePath(const QString &path);
 
+    // PostgreSQL settings
+    void setPostgresSettings(const QJsonObject &settings);
+    QJsonObject getPostgresSettings() const;
+
+    // Supabase settings
+    void setSupabaseSettings(const QJsonObject &settings);
+    QJsonObject getSupabaseSettings() const;
+
     // Stream settings
     void addStream(const QString &name, const QString &url);
     void removeStream(int index);

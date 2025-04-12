@@ -32,7 +32,8 @@ private slots:
     void onModelParameterChanged();
     void onDetectionParameterChanged();
     void onFaissCachePathButtonClicked();
-    void onSaveFaissSettingsButtonClicked();
+    void onSaveAllSettingsButtonClicked();
+    void onPostgresTestButtonClicked();
     void onModelSelectionChanged();
     void onSourceChanged(int index);
     void onStreamSelected(int index);
@@ -44,6 +45,7 @@ private slots:
     void loadModelParameters();
     void loadDetectionParameters();
     void loadFaissSettings();
+    void loadDatabaseSettings();
 
 private:
     Ui::MainWindow *ui;

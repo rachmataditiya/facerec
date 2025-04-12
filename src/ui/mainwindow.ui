@@ -406,53 +406,6 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="faissTab">
-       <attribute name="title">
-        <string>Settings</string>
-       </attribute>
-       <layout class="QVBoxLayout" name="faissTabLayout">
-        <property name="spacing">
-         <number>12</number>
-        </property>
-        <item>
-         <widget class="QGroupBox" name="faissGroup">
-          <property name="title">
-           <string>Faiss Cache Settings</string>
-          </property>
-          <layout class="QVBoxLayout" name="faissLayout">
-           <item>
-            <widget class="QLabel" name="faissCachePathLabel">
-             <property name="text">
-              <string>Cache Path:</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <layout class="QHBoxLayout" name="faissCachePathLayout">
-             <item>
-              <widget class="QLineEdit" name="faissCachePathEdit"/>
-             </item>
-             <item>
-              <widget class="QPushButton" name="faissCachePathButton">
-               <property name="text">
-                <string>Browse...</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-           <item>
-            <widget class="QPushButton" name="saveFaissSettingsButton">
-             <property name="text">
-              <string>Save Settings</string>
-             </property>
-            </widget>
-           </item>
-          </layout>
-         </widget>
-        </item>
-       </layout>
-      </widget>
       <widget class="QWidget" name="streamTab">
        <attribute name="title">
         <string>Stream Management</string>
@@ -533,6 +486,383 @@
            </widget>
           </item>
          </layout>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="faissTab">
+       <attribute name="title">
+        <string>Settings</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="faissTabLayout">
+        <property name="spacing">
+         <number>24</number>
+        </property>
+        <property name="leftMargin">
+         <number>24</number>
+        </property>
+        <property name="topMargin">
+         <number>24</number>
+        </property>
+        <property name="rightMargin">
+         <number>24</number>
+        </property>
+        <property name="bottomMargin">
+         <number>24</number>
+        </property>
+        <item>
+         <widget class="QGroupBox" name="postgresGroup">
+          <property name="title">
+           <string>PostgreSQL Settings</string>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>600</width>
+            <height>250</height>
+           </size>
+          </property>
+          <layout class="QFormLayout" name="postgresLayout">
+           <property name="labelAlignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="formAlignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+           <property name="horizontalSpacing">
+            <number>24</number>
+           </property>
+           <property name="verticalSpacing">
+            <number>16</number>
+           </property>
+           <property name="leftMargin">
+            <number>24</number>
+           </property>
+           <property name="topMargin">
+            <number>24</number>
+           </property>
+           <property name="rightMargin">
+            <number>24</number>
+           </property>
+           <property name="bottomMargin">
+            <number>24</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="postgresHostLabel">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Host:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="postgresHostEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="postgresPortLabel">
+             <property name="text">
+              <string>Port:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QSpinBox" name="postgresPortSpin">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="minimum">
+              <number>1</number>
+             </property>
+             <property name="maximum">
+              <number>65535</number>
+             </property>
+             <property name="value">
+              <number>5432</number>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="0">
+            <widget class="QLabel" name="postgresDatabaseLabel">
+             <property name="text">
+              <string>Database:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="2" column="1">
+            <widget class="QLineEdit" name="postgresDatabaseEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QLabel" name="postgresUsernameLabel">
+             <property name="text">
+              <string>Username:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="1">
+            <widget class="QLineEdit" name="postgresUsernameEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="0">
+            <widget class="QLabel" name="postgresPasswordLabel">
+             <property name="text">
+              <string>Password:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="4" column="1">
+            <widget class="QLineEdit" name="postgresPasswordEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="echoMode">
+              <enum>QLineEdit::Password</enum>
+             </property>
+            </widget>
+           </item>
+           <item row="5" column="1">
+            <widget class="QPushButton" name="postgresTestButton">
+             <property name="minimumSize">
+              <size>
+               <width>150</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="maximumSize">
+              <size>
+               <width>150</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">
+               QPushButton {
+                 background-color: #007ACC;
+                 color: white;
+                 border: none;
+                 border-radius: 4px;
+                 padding: 4px 12px;
+               }
+               QPushButton:hover {
+                 background-color: #005999;
+               }
+               QPushButton:pressed {
+                 background-color: #004C80;
+               }
+              </string>
+             </property>
+             <property name="text">
+              <string>Test Connection</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="supabaseGroup">
+          <property name="title">
+           <string>Supabase Settings</string>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>600</width>
+            <height>150</height>
+           </size>
+          </property>
+          <layout class="QFormLayout" name="supabaseLayout">
+           <property name="labelAlignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="formAlignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+           <property name="horizontalSpacing">
+            <number>24</number>
+           </property>
+           <property name="verticalSpacing">
+            <number>16</number>
+           </property>
+           <property name="leftMargin">
+            <number>24</number>
+           </property>
+           <property name="topMargin">
+            <number>24</number>
+           </property>
+           <property name="rightMargin">
+            <number>24</number>
+           </property>
+           <property name="bottomMargin">
+            <number>24</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="supabaseUrlLabel">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Project URL:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QLineEdit" name="supabaseUrlEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="supabaseKeyLabel">
+             <property name="text">
+              <string>API Key:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="supabaseKeyEdit">
+             <property name="minimumSize">
+              <size>
+               <width>400</width>
+               <height>32</height>
+              </size>
+             </property>
+             <property name="echoMode">
+              <enum>QLineEdit::Password</enum>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QGroupBox" name="faissGroup">
+          <property name="title">
+           <string>Faiss Cache Settings</string>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>600</width>
+            <height>100</height>
+           </size>
+          </property>
+          <layout class="QFormLayout" name="faissLayout">
+           <property name="labelAlignment">
+            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+           </property>
+           <property name="formAlignment">
+            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+           </property>
+           <property name="horizontalSpacing">
+            <number>24</number>
+           </property>
+           <property name="verticalSpacing">
+            <number>16</number>
+           </property>
+           <property name="leftMargin">
+            <number>24</number>
+           </property>
+           <property name="topMargin">
+            <number>24</number>
+           </property>
+           <property name="rightMargin">
+            <number>24</number>
+           </property>
+           <property name="bottomMargin">
+            <number>24</number>
+           </property>
+           <item row="0" column="0">
+            <widget class="QLabel" name="faissCachePathLabel">
+             <property name="minimumSize">
+              <size>
+               <width>120</width>
+               <height>0</height>
+              </size>
+             </property>
+             <property name="text">
+              <string>Cache Path:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <layout class="QHBoxLayout" name="faissCachePathLayout">
+             <property name="spacing">
+              <number>12</number>
+             </property>
+             <item>
+              <widget class="QLineEdit" name="faissCachePathEdit">
+               <property name="minimumSize">
+                <size>
+                 <width>400</width>
+                 <height>32</height>
+                </size>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="faissCachePathButton">
+               <property name="minimumSize">
+                <size>
+                 <width>100</width>
+                 <height>32</height>
+                </size>
+               </property>
+               <property name="text">
+                <string>Browse...</string>
+               </property>
+              </widget>
+             </item>
+            </layout>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="saveAllSettingsButton">
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>40</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Save All Settings</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>

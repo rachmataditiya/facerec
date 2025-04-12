@@ -53,6 +53,8 @@ INCLUDEPATH += \
     /opt/homebrew/lib/QtWidgets.framework/Headers \
     $$PWD/InspireFace/include \
     /opt/homebrew/include/opencv4 \
+    /opt/homebrew/include/postgresql@17 \
+    /opt/homebrew/include/libpq \
     $$PWD/src
 
 # Library paths
@@ -70,11 +72,19 @@ LIBS += \
     -lopencv_face \
     -L$$PWD/InspireFace/lib \
     -lInspireFace \
-    -L/opt/homebrew/lib -lfaiss
+    -L/opt/homebrew/lib \
+    -lpq \
+    -lfaiss
 
 # Mac specific configurations
 macx {
     QMAKE_INFO_PLIST = Info.plist
     QMAKE_MACOSX_DEPLOYMENT_TARGET = 14.0
     QMAKE_APPLE_DEVICE_ARCHS = arm64
+    
+    # PostgreSQL configuration for macOS
+    INCLUDEPATH += \
+        /opt/homebrew/Cellar/postgresql@17/17.4_1/include \
+        /opt/homebrew/Cellar/libpq/17.4_1/include
+    LIBS += -L/opt/homebrew/Cellar/libpq/17.4_1/lib
 }
