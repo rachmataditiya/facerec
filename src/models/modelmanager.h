@@ -29,6 +29,10 @@ public:
     QString getModelPath() const;
     void setModelPath(const QString &path);
 
+signals:
+    void modelLoaded(bool success);
+    void modelUnloaded();
+
 private:
     HFSession m_session;
     HFSessionCustomParameter m_param;

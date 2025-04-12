@@ -47,6 +47,8 @@ private slots:
     void loadDetectionParameters();
     void loadFaissSettings();
     void loadDatabaseSettings();
+    void onModelLoaded(bool success);
+    void onModelUnloaded();
 
 private:
     Ui::MainWindow *ui;

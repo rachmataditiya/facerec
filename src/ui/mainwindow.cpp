@@ -4,6 +4,7 @@
 #include <QtNetwork/QNetworkRequest>
 #include <QtNetwork/QNetworkReply>
 #include <QEventLoop>
+#include <QStatusBar>
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include <QVBoxLayout>
@@ -99,6 +100,10 @@ MainWindow::MainWindow(QWidget *parent)
     loadDetectionParameters();
     loadFaissSettings();
     loadDatabaseSettings();
+
+    // Connect model manager signals
+    connect(m_modelManager, &ModelManager::modelLoaded, this, &MainWindow::onModelLoaded);
+    connect(m_modelManager, &ModelManager::modelUnloaded, this, &MainWindow::onModelUnloaded);
 }
 
 MainWindow::~MainWindow()
@@ -477,4 +482,72 @@ void MainWindow::onSupabaseTestButtonClicked()
     
     reply->deleteLater();
     manager->deleteLater();
+}
+
+void MainWindow::onModelLoaded(bool success)
+{
+    if (success) {
+        ui->modelPathEdit->setReadOnly(true);
+        ui->modelPathButton->setEnabled(false);
+        
+        // Set all parameter checkboxes to readonly
+        ui->enableRecognitionCheck->setEnabled(false);
+        ui->enableLivenessCheck->setEnabled(false);
+        ui->enableMaskDetectCheck->setEnabled(false);
+        ui->enableFaceAttributeCheck->setEnabled(false);
+        ui->enableFaceQualityCheck->setEnabled(false);
+        ui->enableIrLivenessCheck->setEnabled(false);
+        ui->enableInteractionLivenessCheck->setEnabled(false);
+        ui->enableDetectModeLandmarkCheck->setEnabled(false);
+        
+        // Set all detection parameters to readonly
+        ui->faceDetectThresholdSpin->setReadOnly(true);
+        ui->trackModeSmoothRatioSpin->setReadOnly(true);
+        ui->filterMinimumFacePixelSizeSpin->setReadOnly(true);
+        
+        // Update load button text and enable it for unloading
+        ui->loadModelButton->setText("Unload Model");
+        ui->loadModelButton->setEnabled(true);
+        
+        // Update status
+        QStatusBar* statusBar = this->statusBar();
+        if (statusBar) {
+            statusBar->showMessage("Model loaded successfully", 3000);
+        }
+    } else {
+        QStatusBar* statusBar = this->statusBar();
+        if (statusBar) {
+            statusBar->showMessage("Failed to load model", 3000);
+        }
+    }
+}
+
+void MainWindow::onModelUnloaded()
+{
+    ui->modelPathEdit->setReadOnly(false);
+    ui->modelPathButton->setEnabled(true);
+    
+    // Enable all parameter checkboxes
+    ui->enableRecognitionCheck->setEnabled(true);
+    ui->enableLivenessCheck->setEnabled(true);
+    ui->enableMaskDetectCheck->setEnabled(true);
+    ui->enableFaceAttributeCheck->setEnabled(true);
+    ui->enableFaceQualityCheck->setEnabled(true);
+    ui->enableIrLivenessCheck->setEnabled(true);
+    ui->enableInteractionLivenessCheck->setEnabled(true);
+    ui->enableDetectModeLandmarkCheck->setEnabled(true);
+    
+    // Enable all detection parameters
+    ui->faceDetectThresholdSpin->setReadOnly(false);
+    ui->trackModeSmoothRatioSpin->setReadOnly(false);
+    ui->filterMinimumFacePixelSizeSpin->setReadOnly(false);
+    
+    // Update load button text
+    ui->loadModelButton->setText("Load Selected Model");
+    
+    // Update status
+    QStatusBar* statusBar = this->statusBar();
+    if (statusBar) {
+        statusBar->showMessage("Model unloaded", 3000);
+    }
 } 

@@ -38,6 +38,7 @@ bool ModelManager::loadModel()
     QString modelPath = m_settingsManager->getModelPath();
     if (modelPath.isEmpty()) {
         qDebug() << "Model path is not set in settings";
+        emit modelLoaded(false);
         return false;
     }
 
@@ -45,6 +46,7 @@ bool ModelManager::loadModel()
     QList<QString> models = scanModelDirectory(modelPath);
     if (models.isEmpty()) {
         qDebug() << "No models found in directory:" << modelPath;
+        emit modelLoaded(false);
         return false;
     }
 
@@ -53,6 +55,7 @@ bool ModelManager::loadModel()
     HResult ret = HFLaunchInspireFace(modelFullPath.toStdString().c_str());
     if (ret != HSUCCEED) {
         qDebug() << "Failed to initialize InspireFace. Error code:" << ret;
+        emit modelLoaded(false);
         return false;
     }
 
@@ -60,6 +63,7 @@ bool ModelManager::loadModel()
     if (ret != HSUCCEED) {
         qDebug() << "Failed to create session. Error code:" << ret;
         HFTerminateInspireFace();
+        emit modelLoaded(false);
         return false;
     }
 
@@ -74,6 +78,7 @@ bool ModelManager::loadModel()
     HFSessionSetFilterMinimumFacePixelSize(m_session, filterMinimumFacePixelSize);
 
     m_isModelLoaded = true;
+    emit modelLoaded(true);
     return true;
 }
 
@@ -86,6 +91,7 @@ void ModelManager::unloadModel()
         }
         HFTerminateInspireFace();
         m_isModelLoaded = false;
+        emit modelUnloaded();
     }
 }
 
