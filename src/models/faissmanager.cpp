@@ -71,15 +71,15 @@ bool FaissManager::loadCachedIndex()
         QStringList requiredFiles = {m_vectorPath, m_idMapPath, m_rowIdPath};
         for (const QString &file : requiredFiles) {
             if (!QFile::exists(file)) {
-                qDebug() << "Cache file missing:" << file;
-                qDebug() << "Building new index from database...";
+                qDebug() << "❌ Cache file missing:" << file;
+                qDebug() << "🔄 Building new index from database...";
                 return createIndex() && refreshIndex(false);  // false for full refresh
             }
             
             QFileInfo fileInfo(file);
             if (fileInfo.size() == 0) {
-                qDebug() << "Cache file empty:" << file;
-                qDebug() << "Building new index from database...";
+                qDebug() << "❌ Cache file empty:" << file;
+                qDebug() << "🔄 Building new index from database...";
                 return createIndex() && refreshIndex(false);  // false for full refresh
             }
         }
@@ -87,6 +87,7 @@ bool FaissManager::loadCachedIndex()
         // Load vectors
         QFile vectorFile(m_vectorPath);
         if (!vectorFile.open(QIODevice::ReadOnly)) {
+            qDebug() << "❌ Failed to open vector file:" << m_vectorPath;
             return false;
         }
         
@@ -95,7 +96,7 @@ bool FaissManager::loadCachedIndex()
         vectorStream >> numVectors >> dimension;
         
         if (dimension != EMBEDDING_DIM) {
-            qDebug() << "Invalid vector dimension:" << dimension;
+            qDebug() << "❌ Invalid vector dimension:" << dimension << "(expected:" << EMBEDDING_DIM << ")";
             return false;
         }
         
@@ -106,6 +107,7 @@ bool FaissManager::loadCachedIndex()
         // Load ID map
         QFile idMapFile(m_idMapPath);
         if (!idMapFile.open(QIODevice::ReadOnly)) {
+            qDebug() << "❌ Failed to open ID map file:" << m_idMapPath;
             return false;
         }
         QDataStream idMapStream(&idMapFile);
@@ -115,6 +117,7 @@ bool FaissManager::loadCachedIndex()
         // Load row IDs
         QFile rowIdFile(m_rowIdPath);
         if (!rowIdFile.open(QIODevice::ReadOnly)) {
+            qDebug() << "❌ Failed to open row ID file:" << m_rowIdPath;
             return false;
         }
         QDataStream rowIdStream(&rowIdFile);
@@ -139,7 +142,7 @@ bool FaissManager::loadCachedIndex()
             }
             m_index->add(numVectors, vectors.data());
         } else {
-            qDebug() << "Cache is empty, loading from database...";
+            qDebug() << "⚠️ Cache is empty, loading from database...";
             return refreshIndex(false);  // false for full refresh
         }
 
@@ -162,18 +165,18 @@ bool FaissManager::loadCachedIndex()
             loadPersonInfo();
         }
 
-        qDebug() << "Cache loaded:" << m_index->ntotal << "vectors";
+        qDebug() << "✅ Cache loaded:" << m_index->ntotal << "vectors";
         
         // If cache is empty or very small compared to database, refresh from database
         if (m_index->ntotal == 0) {
-            qDebug() << "Cache is empty, loading from database...";
+            qDebug() << "⚠️ Cache is empty, loading from database...";
             return refreshIndex(false);  // false for full refresh
         }
 
         return true;
 
     } catch (const std::exception& e) {
-        qDebug() << "Failed to load cache:" << e.what();
+        qDebug() << "❌ Failed to load cache:" << e.what();
         // Delete corrupt cache files
         QStringList requiredFiles = {m_vectorPath, m_idMapPath, m_rowIdPath};
         for (const QString &file : requiredFiles) {
@@ -182,7 +185,7 @@ bool FaissManager::loadCachedIndex()
             }
         }
         // Try to build new index from database
-        qDebug() << "Building new index from database...";
+        qDebug() << "🔄 Building new index from database...";
         return createIndex() && refreshIndex(false);  // false for full refresh
     }
 }
@@ -191,7 +194,7 @@ bool FaissManager::saveCache()
 {
     try {
         if (!m_index) {
-            qDebug() << "Index not initialized";
+            qDebug() << "❌ Index not initialized";
             return false;
         }
 
@@ -208,6 +211,7 @@ bool FaissManager::saveCache()
         // Save vectors
         QFile vectorFile(m_vectorPath);
         if (!vectorFile.open(QIODevice::WriteOnly)) {
+            qDebug() << "❌ Failed to open vector file:" << m_vectorPath;
             return false;
         }
         QDataStream vectorStream(&vectorFile);
@@ -220,6 +224,7 @@ bool FaissManager::saveCache()
         // Save ID map
         QFile idMapFile(m_idMapPath);
         if (!idMapFile.open(QIODevice::WriteOnly)) {
+            qDebug() << "❌ Failed to open ID map file:" << m_idMapPath;
             return false;
         }
         QDataStream idMapStream(&idMapFile);
@@ -229,6 +234,7 @@ bool FaissManager::saveCache()
         // Save row IDs
         QFile rowIdFile(m_rowIdPath);
         if (!rowIdFile.open(QIODevice::WriteOnly)) {
+            qDebug() << "❌ Failed to open row ID file:" << m_rowIdPath;
             return false;
         }
         QDataStream rowIdStream(&rowIdFile);
@@ -250,11 +256,11 @@ bool FaissManager::saveCache()
             personInfoFile.close();
         }
 
-        qDebug() << "Cache saved:" << m_index->ntotal << "vectors";
+        qDebug() << "✅ Cache saved:" << m_index->ntotal << "vectors";
         return true;
 
     } catch (const std::exception& e) {
-        qDebug() << "Failed to save cache:" << e.what();
+        qDebug() << "❌ Failed to save cache:" << e.what();
         return false;
     }
 }
@@ -262,12 +268,22 @@ bool FaissManager::saveCache()
 bool FaissManager::createIndex()
 {
     try {
+        if (m_index) {
+            delete m_index;
+            m_index = nullptr;
+        }
         m_index = new faiss::IndexFlatIP(EMBEDDING_DIM);
         m_idMap.clear();
         m_rowIds.clear();
+        m_personInfo.clear();
+        m_lastSyncTime = QDateTime();
+        qDebug() << "✅ Created new FAISS index:";
+        qDebug() << "  • Index type: FlatIP";
+        qDebug() << "  • Index dimension:" << m_index->d;
+        qDebug() << "  • Index size:" << m_index->ntotal;
         return true;
     } catch (const std::exception& e) {
-        qDebug() << "Error creating index:" << e.what();
+        qDebug() << "❌ Error creating index:" << e.what();
         return false;
     }
 }
@@ -314,7 +330,7 @@ bool FaissManager::loadPersonInfo()
     }
 
     qDebug() << "📚 Loading person info from database...";
-    const char* query = "SELECT id, name, member_id FROM persons";
+    const char* query = "SELECT id, name, member_id FROM persons ORDER BY id";
     PGresult* res = PQexec(m_pgConn, query);
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -340,6 +356,15 @@ bool FaissManager::loadPersonInfo()
         [](const PersonInfo& info) { return !info.memberId.isEmpty(); });
     qDebug() << "  • With name:" << std::count_if(m_personInfo.begin(), m_personInfo.end(), 
         [](const PersonInfo& info) { return !info.name.isEmpty(); });
+
+    // Log first few persons for verification
+    int count = 0;
+    for (auto it = m_personInfo.begin(); it != m_personInfo.end() && count < 5; ++it, ++count) {
+        qDebug() << "  • Person" << count + 1 << ":";
+        qDebug() << "    - ID:" << it.key();
+        qDebug() << "    - Name:" << it.value().name;
+        qDebug() << "    - Member ID:" << it.value().memberId;
+    }
 
     PQclear(res);
     return true;
@@ -373,6 +398,12 @@ bool FaissManager::refreshIndex(bool incremental)
 
     qDebug() << "🔄 Refreshing FAISS index..." << (incremental ? "(incremental)" : "(full)");
 
+    // Load person info first
+    if (!loadPersonInfo()) {
+        qDebug() << "❌ Failed to load person info";
+        return false;
+    }
+
     // Get total count from database
     PGresult* countRes = PQexec(m_pgConn, "SELECT COUNT(*) FROM person_embeddings");
     if (PQresultStatus(countRes) != PGRES_TUPLES_OK) {
@@ -391,18 +422,21 @@ bool FaissManager::refreshIndex(bool incremental)
              << (m_personInfo.size() > 0 ? QString::number(static_cast<double>(dbCount) / m_personInfo.size(), 'f', 1) : "0");
 
     // Prepare query
-    QString queryStr = "SELECT id, face_embedding, person_id, created_at FROM person_embeddings";
+    QString queryStr = "SELECT id, face_embedding::text, person_id, created_at FROM person_embeddings";
     if (incremental && m_lastSyncTime.isValid()) {
         queryStr += " WHERE created_at > $1";
         qDebug() << "🕒 Loading embeddings since:" << m_lastSyncTime.toString(Qt::ISODate);
     }
     queryStr += " ORDER BY created_at DESC";
 
-    const char* query = queryStr.toUtf8().constData();
+    // Convert query string to std::string to ensure proper null termination
+    std::string queryStdStr = queryStr.toStdString();
+    const char* query = queryStdStr.c_str();
     PGresult* res;
 
     if (incremental && m_lastSyncTime.isValid()) {
-        const char* params[1] = { m_lastSyncTime.toString(Qt::ISODate).toUtf8().constData() };
+        std::string timestampStr = m_lastSyncTime.toString(Qt::ISODate).toStdString();
+        const char* params[1] = { timestampStr.c_str() };
         res = PQexecParams(m_pgConn, query, 1, nullptr, params, nullptr, nullptr, 0);
     } else {
         res = PQexec(m_pgConn, query);
@@ -420,10 +454,13 @@ bool FaissManager::refreshIndex(bool incremental)
     int newCount = 0;
     int skippedCount = 0;
     int errorCount = 0;
-    QSet<QString> uniquePersons;
+    QMap<QString, int> personEmbeddingCounts; // Track embeddings per person
 
     std::vector<float> vectors;
     vectors.reserve(rows * EMBEDDING_DIM);
+
+    // Store current index size before adding new vectors
+    int currentIndexSize = m_index->ntotal;
 
     for (int row = 0; row < rows; row++) {
         QString rowId = QString(PQgetvalue(res, row, 0));
@@ -436,8 +473,42 @@ bool FaissManager::refreshIndex(bool incremental)
         QString personId = QString(PQgetvalue(res, row, 2));
         QString createdAt = QString(PQgetvalue(res, row, 3));
 
-        QVector<float> vec = parseEmbedding(embeddingStr);
-        if (vec.isEmpty()) {
+        // Skip if person info not found
+        if (!m_personInfo.contains(personId)) {
+            qDebug() << "⚠️ Skipping embedding for unknown person:" << personId;
+            errorCount++;
+            continue;
+        }
+
+        // Track embeddings per person
+        personEmbeddingCounts[personId]++;
+
+        // Parse vector from string
+        QVector<float> vec;
+        try {
+            // Remove brackets and split by comma
+            embeddingStr = embeddingStr.mid(1, embeddingStr.length() - 2); // Remove [ and ]
+            QStringList values = embeddingStr.split(',', Qt::SkipEmptyParts);
+            
+            if (values.size() != EMBEDDING_DIM) {
+                qDebug() << "❌ Invalid vector dimension:" << values.size() << "(expected:" << EMBEDDING_DIM << ")";
+                errorCount++;
+                continue;
+            }
+
+            vec.resize(EMBEDDING_DIM);
+            for (int i = 0; i < EMBEDDING_DIM; i++) {
+                bool ok;
+                float value = values[i].trimmed().toFloat(&ok);
+                if (!ok) {
+                    qDebug() << "❌ Failed to parse vector value at index" << i;
+                    errorCount++;
+                    continue;
+                }
+                vec[i] = value;
+            }
+        } catch (const std::exception& e) {
+            qDebug() << "❌ Error parsing vector:" << e.what();
             errorCount++;
             continue;
         }
@@ -455,7 +526,8 @@ bool FaissManager::refreshIndex(bool incremental)
         }
 
         vectors.insert(vectors.end(), vec.begin(), vec.end());
-        m_idMap[m_index->ntotal] = personId;
+        // Map person ID to the correct index (current size + new count)
+        m_idMap[currentIndexSize + newCount] = personId;
         m_rowIds.insert(rowId);
         newCount++;
 
@@ -463,23 +535,35 @@ bool FaissManager::refreshIndex(bool incremental)
         if (!m_lastSyncTime.isValid() || dt > m_lastSyncTime) {
             m_lastSyncTime = dt;
         }
-
-        uniquePersons.insert(personId);
     }
 
     qDebug() << "📥 Processing results:";
     qDebug() << "  ✅ Added:" << newCount << "vectors";
     qDebug() << "  ⏭️ Skipped:" << skippedCount << "vectors (already exists)";
     qDebug() << "  ❌ Errors:" << errorCount << "vectors";
-    qDebug() << "  👥 Unique persons in batch:" << uniquePersons.size();
+    qDebug() << "  👥 Unique persons in batch:" << personEmbeddingCounts.size();
     qDebug() << "  📚 Total vectors in FAISS:" << m_index->ntotal;
-    qDebug() << "  📈 Coverage:" << QString::number(static_cast<double>(m_index->ntotal) / dbCount * 100, 'f', 1) << "%";
+    qDebug() << "  📈 Coverage:" << QString::number(static_cast<double>(newCount) / dbCount * 100, 'f', 1) << "%";
+
+    // Log embeddings per person
+    qDebug() << "  📊 Embeddings per person:";
+    for (auto it = personEmbeddingCounts.begin(); it != personEmbeddingCounts.end(); ++it) {
+        QString personId = it.key();
+        int count = it.value();
+        if (m_personInfo.contains(personId)) {
+            qDebug() << "    •" << m_personInfo[personId].name << "(" << personId << "):" << count << "embeddings";
+        } else {
+            qDebug() << "    • Unknown person (" << personId << "):" << count << "embeddings";
+        }
+    }
 
     PQclear(res);
 
     if (newCount > 0) {
-        qDebug() << "💾 Saving cache...";
+        qDebug() << "💾 Adding vectors to index...";
         m_index->add(newCount, vectors.data());
+        qDebug() << "✅ Index size after adding vectors:" << m_index->ntotal;
+        qDebug() << "💾 Saving cache...";
         saveCache();
     } else {
         qDebug() << "No new embeddings found";
@@ -562,10 +646,15 @@ bool FaissManager::removeFace(const QString &personId)
 QVector<QPair<QString, float>> FaissManager::recognizeFace(const HFFaceFeature &feature)
 {
     if (!m_isInitialized || m_index->ntotal == 0) {
+        qDebug() << "❌ Index not initialized or empty. Total vectors:" << (m_index ? m_index->ntotal : 0);
         return {};
     }
 
     try {
+        qDebug() << "🔍 Starting face recognition...";
+        qDebug() << "  • Total vectors in index:" << m_index->ntotal;
+        qDebug() << "  • Total unique persons:" << m_idMap.size();
+
         // Convert HFFaceFeature to vector<float>
         std::vector<float> vec(EMBEDDING_DIM);
         for (size_t i = 0; i < EMBEDDING_DIM; ++i) {
@@ -578,24 +667,65 @@ QVector<QPair<QString, float>> FaissManager::recognizeFace(const HFFaceFeature &
             norm += vec[i] * vec[i];
         }
         norm = std::sqrt(norm);
+        qDebug() << "  • Vector norm before normalization:" << norm;
+        
         if (norm > 0.0f) {
             for (size_t i = 0; i < EMBEDDING_DIM; ++i) {
                 vec[i] /= norm;
             }
         }
 
-        // Search
-        std::vector<faiss::idx_t> labels(1);
-        std::vector<float> distances(1);
-        m_index->search(1, vec.data(), 1, distances.data(), labels.data());
+        // Search for top 5 matches
+        const int k = 5;
+        std::vector<faiss::idx_t> labels(k);
+        std::vector<float> distances(k);
+        m_index->search(1, vec.data(), k, distances.data(), labels.data());
 
-        QVector<QPair<QString, float>> results;
-        if (labels[0] >= 0 && labels[0] < m_idMap.size()) {
-            results.append({m_idMap[labels[0]], distances[0]});
+        qDebug() << "🔍 Search results:";
+        QMap<QString, float> personDistances; // Map person ID to best distance
+        for (int i = 0; i < k; i++) {
+            if (labels[i] >= 0 && labels[i] < m_idMap.size()) {
+                QString personId = m_idMap[labels[i]];
+                // Keep only the best distance for each person
+                if (!personDistances.contains(personId) || distances[i] < personDistances[personId]) {
+                    personDistances[personId] = distances[i];
+                }
+            }
         }
+
+        // Sort results by distance
+        QVector<QPair<QString, float>> results;
+        for (auto it = personDistances.begin(); it != personDistances.end(); ++it) {
+            results.append({it.key(), it.value()});
+        }
+        std::sort(results.begin(), results.end(), 
+            [](const QPair<QString, float>& a, const QPair<QString, float>& b) {
+                return a.second < b.second;
+            });
+
+        // Log results with person info
+        for (int i = 0; i < results.size(); i++) {
+            QString personId = results[i].first;
+            float distance = results[i].second;
+            qDebug() << "  • Match" << i + 1 << ":";
+            qDebug() << "    - Distance:" << distance;
+            if (m_personInfo.contains(personId)) {
+                qDebug() << "    - Name:" << m_personInfo[personId].name;
+                qDebug() << "    - Member ID:" << m_personInfo[personId].memberId;
+            } else {
+                qDebug() << "    - Person ID:" << personId << "(no info available)";
+            }
+        }
+
+        if (results.isEmpty()) {
+            qDebug() << "❌ No valid matches found";
+        } else {
+            qDebug() << "✅ Found" << results.size() << "unique persons";
+        }
+
         return results;
     } catch (const std::exception& e) {
-        qDebug() << "Error recognizing face:" << e.what();
+        qDebug() << "❌ Error recognizing face:" << e.what();
         return {};
     }
 }

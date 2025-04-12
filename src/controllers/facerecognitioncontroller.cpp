@@ -4,7 +4,7 @@
 #include <QDir>
 #include <opencv2/opencv.hpp>
 #include <inspireface.h>
-#include <cstring> // untuk memset
+#include <cstring>
 #include <QFile>
 #include <QTextStream>
 
@@ -33,25 +33,32 @@ FaceRecognitionController::~FaceRecognitionController()
 
 bool FaceRecognitionController::initialize()
 {
-    if (m_isInitialized)
+    if (m_isInitialized) {
+        qDebug() << "Face recognition already initialized";
         return true;
+    }
 
+    qDebug() << "Initializing face recognition controller...";
     m_isInitialized = true;
+    qDebug() << "Face recognition controller initialized successfully";
     return true;
 }
 
 void FaceRecognitionController::shutdown()
 {
+    qDebug() << "Shutting down face recognition controller...";
     m_isInitialized = false;
+    qDebug() << "Face recognition controller shutdown complete";
 }
 
 QString FaceRecognitionController::recognizeFace(const QImage &image)
 {
     if (!m_modelManager->isModelLoaded()) {
-        qDebug() << "Model not loaded";
+        qDebug() << "Model not loaded, cannot recognize face";
         return QString();
     }
 
+    qDebug() << "Starting face recognition process...";
     // Konversi QImage ke cv::Mat
     cv::Mat mat(image.height(), image.width(), CV_8UC3, (void*)image.bits(), image.bytesPerLine());
     cv::cvtColor(mat, mat, cv::COLOR_RGB2BGR);
@@ -71,6 +78,7 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
         qDebug() << "Failed to create image stream for detection. Error code:" << ret;
         return QString();
     }
+    qDebug() << "Detection stream created successfully";
 
     // Dapatkan session dari model manager
     HFSession session = m_modelManager->getSession();
@@ -84,12 +92,14 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
         HFReleaseImageStream(detectionStream);
         return QString();
     }
+    qDebug() << "Faces detected:" << multipleFaceData.detectedNum;
 
     // Buat token untuk wajah pertama yang terdeteksi
     HFFaceBasicToken faceToken;
     faceToken.size = multipleFaceData.tokens[0].size;
     faceToken.data = new unsigned char[faceToken.size];
     memcpy(faceToken.data, multipleFaceData.tokens[0].data, faceToken.size);
+    qDebug() << "Face token created, size:" << faceToken.size;
 
     // Lepaskan stream deteksi agar tidak terpakai lagi
     HFReleaseImageStream(detectionStream);
@@ -99,9 +109,10 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     ret = HFCreateImageStream(&imageData, &extractionStream);
     if (ret != HSUCCEED) {
         qDebug() << "Failed to create image stream for extraction. Error code:" << ret;
-        delete[] faceToken.data;
+        delete[] static_cast<unsigned char*>(faceToken.data);
         return QString();
     }
+    qDebug() << "Extraction stream created successfully";
 
     // Inisialisasi objek fitur
     HFFaceFeature feature;
@@ -110,32 +121,14 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
 
     // Ekstraksi fitur
     ret = HFFaceFeatureExtract(session, extractionStream, faceToken, &feature);
+    delete[] static_cast<unsigned char*>(faceToken.data);
     HFReleaseImageStream(extractionStream);
-    delete[] faceToken.data;
     
     if (ret != HSUCCEED) {
         qDebug() << "Failed to extract features. Error code:" << ret;
         return QString();
     }
-
-    // Save embedding data to file
-    QFile file("camera.txt");
-    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream out(&file);
-        out << "Feature size: " << feature.size << "\n";
-        out << "Embedding data:\n";
-        
-        int embeddingSize = feature.size / static_cast<int>(sizeof(float));
-        float* embeddingData = reinterpret_cast<float*>(feature.data);
-        for (int i = 0; i < embeddingSize; i++) {
-            out << embeddingData[i] << " ";
-        }
-        out << "\n";
-        file.close();
-        qDebug() << "Embedding data saved to camera.txt";
-    } else {
-        qDebug() << "Failed to open camera.txt for writing";
-    }
+    qDebug() << "Features extracted successfully, size:" << feature.size;
 
     // Pencarian di index FAISS
     QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
@@ -143,18 +136,21 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
         qDebug() << "No match found in database";
         return QString();
     }
+    qDebug() << "Recognition results found:" << recognitionResults.size();
 
     QPair<QString, float> bestMatch = recognitionResults.first();
     if (bestMatch.second < 0.75) {
         qDebug() << "Best match similarity too low:" << bestMatch.second;
         return QString();
     }
+    qDebug() << "Best match found:" << bestMatch.first << "with similarity:" << bestMatch.second;
     return bestMatch.first;
 }
 
 bool FaceRecognitionController::startRecognition(int sourceIndex, const QString &streamUrl)
 {
     if (m_isRunning) {
+        qDebug() << "Recognition already running, stopping first...";
         stopRecognition();
     }
 
@@ -163,14 +159,17 @@ bool FaceRecognitionController::startRecognition(int sourceIndex, const QString 
         return false;
     }
 
+    qDebug() << "Starting face recognition...";
     m_videoCapture = new cv::VideoCapture();
     
     if (sourceIndex == 0) { // Webcam
+        qDebug() << "Opening webcam...";
         m_videoCapture->open(0);
         m_videoCapture->set(cv::CAP_PROP_FRAME_WIDTH, 1280);
         m_videoCapture->set(cv::CAP_PROP_FRAME_HEIGHT, 720);
         m_videoCapture->set(cv::CAP_PROP_FPS, 30);
     } else { // RTSP
+        qDebug() << "Opening RTSP stream:" << streamUrl;
         QString rtspUrl = streamUrl;
         if (!rtspUrl.contains("transport=")) {
             rtspUrl += (rtspUrl.contains("?") ? "&" : "?") + QString("transport=tcp");
@@ -192,14 +191,17 @@ bool FaceRecognitionController::startRecognition(int sourceIndex, const QString 
         return false;
     }
 
+    qDebug() << "Video source opened successfully";
     m_isRunning = true;
     m_timer->start(33); // ~30 FPS
+    qDebug() << "Face recognition started successfully";
     return true;
 }
 
 void FaceRecognitionController::stopRecognition()
 {
     if (m_isRunning) {
+        qDebug() << "Stopping face recognition...";
         m_timer->stop();
         if (m_videoCapture) {
             QString url = QString::fromStdString(m_videoCapture->getBackendName());
@@ -207,9 +209,11 @@ void FaceRecognitionController::stopRecognition()
             delete m_videoCapture;
             m_videoCapture = nullptr;
             emit streamStopped(url);
+            qDebug() << "Video capture stopped:" << url;
         }
         m_isRunning = false;
         m_videoWidget->clear();
+        qDebug() << "Face recognition stopped successfully";
     }
 }
 
@@ -221,6 +225,7 @@ bool FaceRecognitionController::isRunning() const
 void FaceRecognitionController::processFrame()
 {
     if (!m_videoCapture || !m_videoCapture->isOpened()) {
+        qDebug() << "Video capture not available, stopping recognition";
         stopRecognition();
         return;
     }
@@ -230,18 +235,25 @@ void FaceRecognitionController::processFrame()
         if (m_videoCapture->get(cv::CAP_PROP_BACKEND) == cv::CAP_FFMPEG) {
             // Try to reconnect for RTSP
             QString url = QString::fromStdString(m_videoCapture->getBackendName());
+            qDebug() << "RTSP stream disconnected, attempting to reconnect:" << url;
             m_videoCapture->release();
             if (!m_videoCapture->open(url.toStdString())) {
+                qDebug() << "Failed to reconnect to RTSP stream";
                 stopRecognition();
                 return;
             }
+            qDebug() << "Successfully reconnected to RTSP stream";
         } else {
+            qDebug() << "Failed to read frame from video source";
             stopRecognition();
             return;
         }
     }
 
-    if (frame.empty()) return;
+    if (frame.empty()) {
+        qDebug() << "Received empty frame";
+        return;
+    }
 
     // Convert frame to InspireFace format
     HFImageData imageData;
@@ -265,9 +277,11 @@ void FaceRecognitionController::processFrame()
     ret = HFExecuteFaceTrack(m_modelManager->getSession(), streamHandle, &results);
     
     if (ret == HSUCCEED) {
+        qDebug() << "Faces detected:" << results.detectedNum;
         for (int i = 0; i < results.detectedNum; i++) {
             // Skip faces with low confidence
             if (results.detConfidence[i] < 0.7) {
+                qDebug() << "Skipping face with low confidence:" << results.detConfidence[i];
                 cv::Rect faceRect(
                     results.rects[i].x,
                     results.rects[i].y,
@@ -280,6 +294,7 @@ void FaceRecognitionController::processFrame()
 
             // Skip faces that are too small
             if (results.rects[i].width < 60 || results.rects[i].height < 60) {
+                qDebug() << "Skipping face that is too small:" << results.rects[i].width << "x" << results.rects[i].height;
                 continue;
             }
 
@@ -295,7 +310,7 @@ void FaceRecognitionController::processFrame()
             feature.data = nullptr;
 
             ret = HFFaceFeatureExtract(m_modelManager->getSession(), streamHandle, faceToken, &feature);
-            delete[] faceToken.data;
+            delete[] static_cast<unsigned char*>(faceToken.data);
 
             if (ret != HSUCCEED) {
                 qDebug() << "Failed to extract features. Error code:" << ret;
@@ -318,10 +333,13 @@ void FaceRecognitionController::processFrame()
                 QPair<QString, float> result = recognitionResults.first();
                 personId = result.first;
                 distance = result.second;
+                qDebug() << "Face recognized:" << personId << "with distance:" << distance;
 
                 // Get additional info from FAISS manager
                 PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
                 memberId = personInfo.memberId;
+            } else {
+                qDebug() << "No match found for face";
             }
 
             // Get face rectangle coordinates
@@ -343,6 +361,8 @@ void FaceRecognitionController::processFrame()
                                 isLive,
                                 memberId);
         }
+    } else {
+        qDebug() << "Face detection failed. Error code:" << ret;
     }
 
     // Release image stream
@@ -352,7 +372,7 @@ void FaceRecognitionController::processFrame()
     m_videoWidget->setFrame(frame);
 }
 
-void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QString &name, float distance, 
+void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
                                                          const cv::Rect &faceRect, const QString &gender, 
                                                          const QString &age, bool isWearingMask, bool isLive,
                                                          const QString &memberId)
@@ -360,20 +380,22 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QSt
     // Gambar rectangle wajah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 255, 0), 2);
 
+    // Dapatkan info person dari FAISS manager
+    PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
+    QString name = personInfo.name;
+    QString displayMemberId = personInfo.memberId.isEmpty() ? memberId : personInfo.memberId;
+
     // Siapkan label yang akan ditampilkan
     std::vector<std::string> labelLines;
-    labelLines.push_back(name.toStdString());
-    if (!memberId.isEmpty())
-        labelLines.push_back("ID: " + memberId.toStdString());
-    labelLines.push_back(gender.toStdString() + ", " + age.toStdString());
+    labelLines.push_back(name.isEmpty() ? "Unknown" : name.toStdString());
+    if (!displayMemberId.isEmpty())
+        labelLines.push_back("ID: " + displayMemberId.toStdString());
     labelLines.push_back(QString("Score: %1%").arg(int((1.0 - distance) * 100)).toStdString());
-    labelLines.push_back(isWearingMask ? "Mask: Yes" : "Mask: No");
-    labelLines.push_back(isLive ? "Liveness: Live" : "Liveness: Spoof");
 
     int font = cv::FONT_HERSHEY_SIMPLEX;
     double fontScale = 0.8;
     int thickness = 3;
-    cv::Scalar color = (name == "Unknown") ? cv::Scalar(0, 0, 255) : cv::Scalar(255, 255, 255);
+    cv::Scalar color = (name.isEmpty() || name == "Unknown") ? cv::Scalar(0, 0, 255) : cv::Scalar(255, 255, 255);
     int verticalOffset = 90;
     int lineHeight = 30;
 
