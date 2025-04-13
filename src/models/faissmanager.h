@@ -1,83 +1,92 @@
-#pragma once
+#ifndef FAISSMANAGER_H
+#define FAISSMANAGER_H
 
 #include <QObject>
-#include <QString>
-#include <QVector>
 #include <QMap>
 #include <QSet>
 #include <QDateTime>
-#include <QDir>
-#include <QFile>
+#include <QString>
+#include <QVector>
+#include <QPair>
 #include <QJsonObject>
-#include <QJsonArray>
-#include <QJsonDocument>
-#include <QDebug>
-
-// PostgreSQL
+#include <faiss/IndexFlat.h>
 #include <libpq-fe.h>
 
-// FAISS
-#include <faiss/IndexFlat.h>
-#include <faiss/Index.h>
-#include <faiss/IndexIDMap.h>
-#include <faiss/impl/IDSelector.h>
+#define EMBEDDING_DIM 512
 
-// InspireFace C API
-#include <inspireface.h>
-
-class SettingsManager;
-
+// Struktur untuk menyimpan informasi orang
 struct PersonInfo {
     QString name;
     QString memberId;
 };
 
+// Forward declaration dari SettingsManager (dianggap sudah ada)
+class SettingsManager;
+
 class FaissManager : public QObject
 {
     Q_OBJECT
-
 public:
     explicit FaissManager(SettingsManager* settingsManager, QObject *parent = nullptr);
     ~FaissManager();
 
+    // Metode untuk inisialisasi dan shutdown index
     bool initialize();
     bool shutdown();
 
+    // Metode untuk memuat dan menyimpan cache index
     bool loadCachedIndex();
-    bool refreshIndex(bool incremental = true);
     bool saveCache();
-    bool createIndex();
 
-    bool addFace(const QString &personId, const HFFaceFeature &feature, const QString &rowId);
+    // Membuat index baru dan refresh dari database
+    bool createIndex();
+    bool refreshIndex(bool incremental = true);
+
+    // Load informasi person dari database
+    bool loadPersonInfo();
+
+    // Parsing embedding (JSON array) menjadi QVector<float>
+    QVector<float> parseEmbedding(const QString &embeddingStr);
+
+    // Tambah face embedding ke index
+    bool addFace(const QString &personId, const QVector<float> &feature, const QString &rowId);
+
+    // Hapus face embedding untuk personId tertentu
     bool removeFace(const QString &personId);
-    QVector<QPair<QString, float>> recognizeFace(const HFFaceFeature &feature);
+
+    // Lakukan pencarian (recognize face) berdasarkan feature query
+    QPair<QString, float> recognizeFace(const QVector<float> &feature);
+
+    // Ambil daftar unik ID face/person
     QStringList getAllFaces() const;
 
-    bool loadPersonInfo();
+    // Ambil informasi person berdasarkan personId
     PersonInfo getPersonInfo(const QString &personId) const;
 
 private:
-    static const int EMBEDDING_DIM = 512;
-    static const int BATCH_SIZE = 1000;
+    // Metode untuk koneksi ke database PostgreSQL
+    bool connectToDatabase();
+    void disconnectFromDatabase();
 
-    SettingsManager* m_settingsManager;
-    faiss::Index* m_index;
-    QMap<int, QString> m_idMap;
-    QSet<QString> m_rowIds;
-    QMap<QString, PersonInfo> m_personInfo;
-    QDateTime m_lastSyncTime;
-    bool m_isInitialized;
+    // Data anggota (gunakan urutan yang sama seperti deklarasi)
+    faiss::IndexFlatIP *m_index;          // Pointer ke index FAISS
+    QMap<int, QString> m_idMap;             // Mapping indeks FAISS ke personId
+    QSet<QString> m_rowIds;                 // Set untuk row ID agar tidak duplikat
+    QMap<QString, PersonInfo> m_personInfo; // Data informasi person (id, nama, memberId)
+    QDateTime m_lastSyncTime;               // Waktu terakhir sinkronisasi dengan DB
 
+    // Path file untuk cache
     QString m_dataDir;
     QString m_vectorPath;
     QString m_idMapPath;
     QString m_rowIdPath;
     QString m_personInfoPath;
+
+    // Koneksi database PostgreSQL
     PGconn* m_pgConn;
 
-    bool connectToDatabase();
-    void disconnectFromDatabase();
-    QVector<float> parseEmbedding(const QString &embeddingStr);
-    bool saveToFile(const QString &path, const QByteArray &data) const;
-    QByteArray loadFromFile(const QString &path) const;
+    // SettingsManager untuk mengambil konfigurasi (misalnya path cache, kredensial DB)
+    SettingsManager* m_settingsManager;
 };
+
+#endif // FAISSMANAGER_H

@@ -83,6 +83,7 @@ macx {
     # PostgreSQL configuration for macOS
     INCLUDEPATH += \
         /opt/homebrew/Cellar/postgresql@17/17.4_1/include \
+        /opt/homebrew/Cellar/faiss/1.10.0/include \
         /opt/homebrew/Cellar/libpq/17.4_1/include
     LIBS += -L/opt/homebrew/Cellar/libpq/17.4_1/lib
 }

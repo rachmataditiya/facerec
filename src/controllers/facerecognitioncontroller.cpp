@@ -8,6 +8,7 @@
 #include <QFile>
 #include <QTextStream>
 
+// Konstruktor
 FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager, 
                                                      SettingsManager* settingsManager,
                                                      FaissManager* faissManager,
@@ -26,11 +27,13 @@ FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager,
     connect(m_timer, &QTimer::timeout, this, &FaceRecognitionController::processFrame);
 }
 
+// Destructor
 FaceRecognitionController::~FaceRecognitionController()
 {
     shutdown();
 }
 
+// Inisialisasi face recognition controller
 bool FaceRecognitionController::initialize()
 {
     if (m_isInitialized) {
@@ -44,6 +47,7 @@ bool FaceRecognitionController::initialize()
     return true;
 }
 
+// Shutdown controller
 void FaceRecognitionController::shutdown()
 {
     qDebug() << "Shutting down face recognition controller...";
@@ -51,6 +55,7 @@ void FaceRecognitionController::shutdown()
     qDebug() << "Face recognition controller shutdown complete";
 }
 
+// Fungsi untuk melakukan face recognition dari QImage
 QString FaceRecognitionController::recognizeFace(const QImage &image)
 {
     if (!m_modelManager->isModelLoaded()) {
@@ -61,7 +66,7 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     qDebug() << "Starting face recognition process...";
     // Konversi QImage ke cv::Mat
     cv::Mat mat(image.height(), image.width(), CV_8UC3, (void*)image.bits(), image.bytesPerLine());
-    cv::cvtColor(mat, mat, cv::COLOR_RGB2BGR);
+    cv::cvtColor(mat, mat, cv::COLOR_BGR2RGB);
 
     // Siapkan struktur data gambar
     HFImageData imageData;
@@ -71,7 +76,7 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     imageData.format = HF_STREAM_BGR;
     imageData.rotation = HF_CAMERA_ROTATION_0;
 
-    // --- 1. Buat stream khusus untuk deteksi ---
+    // --- 1. Buat stream untuk deteksi ---
     HFImageStream detectionStream;
     int32_t ret = HFCreateImageStream(&imageData, &detectionStream);
     if (ret != HSUCCEED) {
@@ -94,17 +99,17 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     }
     qDebug() << "Faces detected:" << multipleFaceData.detectedNum;
 
-    // Buat token untuk wajah pertama yang terdeteksi
+    // Buat token dari wajah pertama yang terdeteksi
     HFFaceBasicToken faceToken;
     faceToken.size = multipleFaceData.tokens[0].size;
     faceToken.data = new unsigned char[faceToken.size];
     memcpy(faceToken.data, multipleFaceData.tokens[0].data, faceToken.size);
     qDebug() << "Face token created, size:" << faceToken.size;
 
-    // Lepaskan stream deteksi agar tidak terpakai lagi
+    // Lepaskan stream deteksi
     HFReleaseImageStream(detectionStream);
 
-    // Buat stream baru khusus untuk ekstraksi fitur
+    // --- 2. Buat stream untuk ekstraksi fitur ---
     HFImageStream extractionStream;
     ret = HFCreateImageStream(&imageData, &extractionStream);
     if (ret != HSUCCEED) {
@@ -114,12 +119,12 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     }
     qDebug() << "Extraction stream created successfully";
 
-    // Inisialisasi objek fitur
+    // Inisialisasi struktur fitur wajah
     HFFaceFeature feature;
     feature.size = 0;
     feature.data = nullptr;
 
-    // Ekstraksi fitur
+    // Ekstraksi fitur wajah
     ret = HFFaceFeatureExtract(session, extractionStream, faceToken, &feature);
     delete[] static_cast<unsigned char*>(faceToken.data);
     HFReleaseImageStream(extractionStream);
@@ -130,23 +135,32 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
     }
     qDebug() << "Features extracted successfully, size:" << feature.size;
 
-    // Pencarian di index FAISS
-    QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
-    if (recognitionResults.isEmpty()) {
+    // --- Konversi HFFaceFeature ke QVector<float> ---
+    QVector<float> featureVec;
+    if (feature.size > 0 && feature.data) {
+        featureVec.resize(feature.size);
+        memcpy(featureVec.data(), feature.data, feature.size * sizeof(float));
+    } else {
+        qDebug() << "Feature extraction menghasilkan data kosong.";
+        return QString();
+    }
+
+    // Pencarian di index FAISS menggunakan fitur yang telah dikonversi.
+    // Fungsi recognizeFace() pada FaissManager mengembalikan QPair<QString, float>.
+    QPair<QString, float> recognitionResult = m_faissManager->recognizeFace(featureVec);
+    if (recognitionResult.first.isEmpty()) {
         qDebug() << "No match found in database";
         return QString();
     }
-    qDebug() << "Recognition results found:" << recognitionResults.size();
-
-    QPair<QString, float> bestMatch = recognitionResults.first();
-    if (bestMatch.second < 0.75) {
-        qDebug() << "Best match similarity too low:" << bestMatch.second;
+    if (recognitionResult.second < 0.75) {
+        qDebug() << "Best match similarity too low:" << recognitionResult.second;
         return QString();
     }
-    qDebug() << "Best match found:" << bestMatch.first << "with similarity:" << bestMatch.second;
-    return bestMatch.first;
+    qDebug() << "Best match found:" << recognitionResult.first << "with similarity:" << recognitionResult.second;
+    return recognitionResult.first;
 }
 
+// Memulai proses face recognition (webcam atau RTSP)
 bool FaceRecognitionController::startRecognition(int sourceIndex, const QString &streamUrl)
 {
     if (m_isRunning) {
@@ -198,6 +212,7 @@ bool FaceRecognitionController::startRecognition(int sourceIndex, const QString 
     return true;
 }
 
+// Menghentikan proses recognition
 void FaceRecognitionController::stopRecognition()
 {
     if (m_isRunning) {
@@ -217,6 +232,7 @@ void FaceRecognitionController::stopRecognition()
     }
 }
 
+// Proses frame video
 void FaceRecognitionController::processFrame()
 {
     if (!m_videoCapture || !m_videoCapture->isOpened()) {
@@ -228,7 +244,7 @@ void FaceRecognitionController::processFrame()
     cv::Mat frame;
     if (!m_videoCapture->read(frame)) {
         if (m_videoCapture->get(cv::CAP_PROP_BACKEND) == cv::CAP_FFMPEG) {
-            // Try to reconnect for RTSP
+            // Try reconnect untuk RTSP
             QString url = QString::fromStdString(m_videoCapture->getBackendName());
             qDebug() << "RTSP stream disconnected, attempting to reconnect:" << url;
             m_videoCapture->release();
@@ -250,7 +266,7 @@ void FaceRecognitionController::processFrame()
         return;
     }
 
-    // Convert frame to InspireFace format
+    // Konversi frame ke format InspireFace
     HFImageData imageData;
     imageData.data = frame.data;
     imageData.width = frame.cols;
@@ -258,7 +274,7 @@ void FaceRecognitionController::processFrame()
     imageData.format = HF_STREAM_BGR;
     imageData.rotation = HF_CAMERA_ROTATION_0;
 
-    // Create image stream
+    // Buat image stream
     HFImageStream streamHandle;
     HResult ret = HFCreateImageStream(&imageData, &streamHandle);
     if (ret != HSUCCEED) {
@@ -266,7 +282,7 @@ void FaceRecognitionController::processFrame()
         return;
     }
 
-    // Detect faces
+    // Deteksi wajah
     HFMultipleFaceData results;
     memset(&results, 0, sizeof(HFMultipleFaceData));
     ret = HFExecuteFaceTrack(m_modelManager->getSession(), streamHandle, &results);
@@ -274,7 +290,7 @@ void FaceRecognitionController::processFrame()
     if (ret == HSUCCEED) {
         qDebug() << "Faces detected:" << results.detectedNum;
         for (int i = 0; i < results.detectedNum; i++) {
-            // Skip faces with low confidence
+            // Lewati wajah dengan confidence rendah
             if (results.detConfidence[i] < 0.7) {
                 qDebug() << "Skipping face with low confidence:" << results.detConfidence[i];
                 cv::Rect faceRect(
@@ -287,19 +303,20 @@ void FaceRecognitionController::processFrame()
                 continue;
             }
 
-            // Skip faces that are too small
+            // Lewati wajah yang terlalu kecil
             if (results.rects[i].width < 60 || results.rects[i].height < 60) {
-                qDebug() << "Skipping face that is too small:" << results.rects[i].width << "x" << results.rects[i].height;
+                qDebug() << "Skipping face that is too small:" 
+                         << results.rects[i].width << "x" << results.rects[i].height;
                 continue;
             }
 
-            // Create face token
+            // Buat token wajah
             HFFaceBasicToken faceToken;
             faceToken.size = results.tokens[i].size;
             faceToken.data = new unsigned char[faceToken.size];
             memcpy(faceToken.data, results.tokens[i].data, faceToken.size);
 
-            // Extract features
+            // Ekstraksi fitur untuk wajah tersebut
             HFFaceFeature feature;
             feature.size = 0;
             feature.data = nullptr;
@@ -312,28 +329,37 @@ void FaceRecognitionController::processFrame()
                 continue;
             }
 
-            // Recognize face
-            QVector<QPair<QString, float>> recognitionResults = m_faissManager->recognizeFace(feature);
+            // Konversi HFFaceFeature ke QVector<float>
+            QVector<float> featureVec;
+            if (feature.size > 0 && feature.data) {
+                featureVec.resize(feature.size);
+                memcpy(featureVec.data(), feature.data, feature.size * sizeof(float));
+            } else {
+                qDebug() << "Feature extraction returned empty data";
+                continue;
+            }
+
+            // Pencarian wajah menggunakan FAISS manager
+            QPair<QString, float> recognitionResult = m_faissManager->recognizeFace(featureVec);
             
-            // Prepare face attributes
+            // Siapkan atribut wajah
             QString memberId = "";
             QString personId = "";
             float distance = 1.0f;
 
-            if (!recognitionResults.isEmpty()) {
-                QPair<QString, float> result = recognitionResults.first();
-                personId = result.first;
-                distance = result.second;
+            if (!recognitionResult.first.isEmpty()) {
+                personId = recognitionResult.first;
+                distance = recognitionResult.second;
                 qDebug() << "Face recognized:" << personId << "with distance:" << distance;
 
-                // Get additional info from FAISS manager
+                // Dapatkan info tambahan dari FAISS manager
                 PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
                 memberId = personInfo.memberId;
             } else {
                 qDebug() << "No match found for face";
             }
 
-            // Get face rectangle coordinates
+            // Dapatkan koordinat rectangle wajah
             cv::Rect faceRect(
                 results.rects[i].x,
                 results.rects[i].y,
@@ -341,36 +367,37 @@ void FaceRecognitionController::processFrame()
                 results.rects[i].height
             );
 
-            // Draw recognition results
+            // Gambar hasil face recognition
             drawRecognitionResults(frame, 
-                                recognitionResults.isEmpty() ? "Unknown" : personId,
-                                distance,
-                                faceRect,
-                                memberId);
+                                   recognitionResult.first.isEmpty() ? "Unknown" : personId,
+                                   distance,
+                                   faceRect,
+                                   memberId);
         }
     } else {
         qDebug() << "Face detection failed. Error code:" << ret;
     }
 
-    // Release image stream
+    // Lepaskan image stream
     HFReleaseImageStream(streamHandle);
 
-    // Display frame
+    // Tampilkan frame ke video widget
     m_videoWidget->setFrame(frame);
 }
 
+// Menggambar hasil recognition di atas frame
 void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
                                                          const cv::Rect &faceRect, const QString &memberId)
 {
     // Gambar rectangle wajah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 255, 0), 2);
 
-    // Dapatkan info person dari FAISS manager
+    // Ambil info person dari FAISS manager
     PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
     QString name = personInfo.name;
     QString displayMemberId = personInfo.memberId.isEmpty() ? memberId : personInfo.memberId;
 
-    // Siapkan label yang akan ditampilkan
+    // Buat label yang akan ditampilkan
     std::vector<std::string> labelLines;
     labelLines.push_back(name.isEmpty() ? "Unknown" : name.toStdString());
     if (!displayMemberId.isEmpty())
@@ -394,6 +421,7 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QSt
     }
 }
 
+// Menggambar tanda untuk wajah berkualitas rendah
 void FaceRecognitionController::drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect)
 {
     // Gambar rectangle dengan warna merah untuk wajah berkualitas rendah
