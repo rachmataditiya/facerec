@@ -21,19 +21,12 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
     , m_settingsManager(new SettingsManager(this))
     , m_modelManager(nullptr)
-    , m_faissManager(nullptr)
     , m_activeController(nullptr)
 {
     ui->setupUi(this);
     
     // Initialize ModelManager after SettingsManager
     m_modelManager = new ModelManager(m_settingsManager, this);
-    
-    // Initialize FaissManager
-    m_faissManager = new FaissManager(m_settingsManager, this);
-    if (!m_faissManager->initialize()) {
-        qDebug() << "Gagal menginisialisasi FaissManager";
-    }
     
     // Hide stream combobox by default since camera is the default source
     ui->streamComboBox->setVisible(false);
@@ -82,9 +75,6 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->trackModeSmoothRatioSpin, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
     connect(ui->filterMinimumFacePixelSizeSpin, QOverload<int>::of(&QSpinBox::valueChanged), this, &MainWindow::onDetectionParameterChanged);
             
-    // Connect Faiss settings signals
-    connect(ui->faissCachePathButton, &QPushButton::clicked,
-            this, &MainWindow::onFaissCachePathButtonClicked);
     connect(ui->saveAllSettingsButton, &QPushButton::clicked,
             this, &MainWindow::onSaveAllSettingsButtonClicked);
     connect(ui->postgresTestButton, &QPushButton::clicked,
@@ -95,7 +85,6 @@ MainWindow::MainWindow(QWidget *parent)
     // Load saved parameters
     loadModelParameters();
     loadDetectionParameters();
-    loadFaissSettings();
     loadDatabaseSettings();
 
     // Connect model manager signals
@@ -106,7 +95,6 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     delete ui;
-    delete m_faissManager;
     delete m_activeController;
 }
 
@@ -171,7 +159,7 @@ void MainWindow::onStartButtonClicked()
 
     // Create appropriate controller based on recognition checkbox
     if (ui->enableRecognitionCheck->isChecked()) {
-        m_activeController = new FaceRecognitionController(m_modelManager, m_settingsManager, m_faissManager, ui->videoWidget, this);
+        m_activeController = new FaceRecognitionController(m_modelManager, m_settingsManager, ui->videoWidget, this);
         FaceRecognitionController* recognitionController = static_cast<FaceRecognitionController*>(m_activeController);
         
         // Initialize recognition controller first

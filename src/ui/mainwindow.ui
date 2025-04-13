@@ -489,11 +489,11 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="faissTab">
+      <widget class="QWidget" name="settingsTab">
        <attribute name="title">
         <string>Settings</string>
        </attribute>
-       <layout class="QVBoxLayout" name="faissTabLayout">
+       <layout class="QVBoxLayout" name="settingsTabLayout">
         <property name="spacing">
          <number>24</number>
         </property>
@@ -806,86 +806,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QGroupBox" name="faissGroup">
-          <property name="title">
-           <string>Faiss Cache Settings</string>
-          </property>
-          <property name="minimumSize">
-           <size>
-            <width>600</width>
-            <height>100</height>
-           </size>
-          </property>
-          <layout class="QFormLayout" name="faissLayout">
-           <property name="labelAlignment">
-            <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-           </property>
-           <property name="formAlignment">
-            <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-           </property>
-           <property name="horizontalSpacing">
-            <number>24</number>
-           </property>
-           <property name="verticalSpacing">
-            <number>16</number>
-           </property>
-           <property name="leftMargin">
-            <number>24</number>
-           </property>
-           <property name="topMargin">
-            <number>24</number>
-           </property>
-           <property name="rightMargin">
-            <number>24</number>
-           </property>
-           <property name="bottomMargin">
-            <number>24</number>
-           </property>
-           <item row="0" column="0">
-            <widget class="QLabel" name="faissCachePathLabel">
-             <property name="minimumSize">
-              <size>
-               <width>120</width>
-               <height>0</height>
-              </size>
-             </property>
-             <property name="text">
-              <string>Cache Path:</string>
-             </property>
-            </widget>
-           </item>
-           <item row="0" column="1">
-            <layout class="QHBoxLayout" name="faissCachePathLayout">
-             <property name="spacing">
-              <number>12</number>
-             </property>
-             <item>
-              <widget class="QLineEdit" name="faissCachePathEdit">
-               <property name="minimumSize">
-                <size>
-                 <width>400</width>
-                 <height>32</height>
-                </size>
-               </property>
-              </widget>
-             </item>
-             <item>
-              <widget class="QPushButton" name="faissCachePathButton">
-               <property name="minimumSize">
-                <size>
-                 <width>100</width>
-                 <height>32</height>
-                </size>
-               </property>
-               <property name="text">
-                <string>Browse...</string>
-               </property>
-              </widget>
-             </item>
-            </layout>
-           </item>
-          </layout>
-         </widget>
         </item>
         <item>
          <widget class="QPushButton" name="saveAllSettingsButton">

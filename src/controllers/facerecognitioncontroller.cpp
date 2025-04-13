@@ -8,16 +8,13 @@
 #include <QFile>
 #include <QTextStream>
 
-// Konstruktor
 FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager, 
                                                      SettingsManager* settingsManager,
-                                                     FaissManager* faissManager,
                                                      VideoWidget* videoWidget,
                                                      QObject *parent)
     : QObject(parent)
     , m_modelManager(modelManager)
     , m_settingsManager(settingsManager)
-    , m_faissManager(faissManager)
     , m_videoWidget(videoWidget)
     , m_timer(new QTimer(this))
     , m_videoCapture(nullptr)

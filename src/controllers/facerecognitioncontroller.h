@@ -11,7 +11,6 @@
 #include <inspireface.h>
 #include "../models/modelmanager.h"
 #include "../models/settingsmanager.h"
-#include "../models/faissmanager.h"
 #include "../ui/videowidget.h"
 
 class FaceRecognitionController : public QObject
@@ -21,7 +20,6 @@ class FaceRecognitionController : public QObject
 public:
     explicit FaceRecognitionController(ModelManager* modelManager, 
                                      SettingsManager* settingsManager,
-                                     FaissManager* faissManager,
                                      VideoWidget* videoWidget,
                                      QObject *parent = nullptr);
     ~FaceRecognitionController();
@@ -48,7 +46,6 @@ private:
 
     ModelManager* m_modelManager;
     SettingsManager* m_settingsManager;
-    FaissManager* m_faissManager;
     VideoWidget* m_videoWidget;
     QTimer* m_timer;
     cv::VideoCapture* m_videoCapture;

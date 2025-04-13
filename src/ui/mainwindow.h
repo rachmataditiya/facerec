@@ -10,7 +10,6 @@
 #include <QGroupBox>
 #include "../models/modelmanager.h"
 #include "../models/settingsmanager.h"
-#include "../models/faissmanager.h"
 #include "../controllers/facedetectioncontroller.h"
 #include "../controllers/facerecognitioncontroller.h"
 #include "videowidget.h"
@@ -32,7 +31,6 @@ private slots:
     void onLoadModelButtonClicked();
     void onModelParameterChanged();
     void onDetectionParameterChanged();
-    void onFaissCachePathButtonClicked();
     void onSaveAllSettingsButtonClicked();
     void onPostgresTestButtonClicked();
     void onSupabaseTestButtonClicked();
@@ -46,7 +44,6 @@ private slots:
     void onStreamTableChanged(int row, int column);
     void loadModelParameters();
     void loadDetectionParameters();
-    void loadFaissSettings();
     void loadDatabaseSettings();
     void onModelLoaded(bool success);
     void onModelUnloaded();
@@ -55,8 +52,7 @@ private:
     Ui::MainWindow *ui;
     SettingsManager *m_settingsManager;
     ModelManager *m_modelManager;
-    FaissManager *m_faissManager;
-    QObject *m_activeController;  // Pointer to active controller (detection or recognition)
+    QObject *m_activeController;
 
     void updateStreamComboBox();
     void updateStreamTable();
