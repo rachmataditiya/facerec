@@ -82,4 +82,13 @@ macx {
         /opt/homebrew/Cellar/postgresql@17/17.4_1/include \
         /opt/homebrew/Cellar/libpq/17.4_1/include
     LIBS += -L/opt/homebrew/Cellar/libpq/17.4_1/lib
+
+    # Copy InspireFace library to app bundle
+    LIB_INSPIRE_FACE = $$PWD/InspireFace/lib/libInspireFace.dylib
+    LIB_INSPIRE_FACE_DEST = $$OUT_PWD/$${TARGET}.app/Contents/Frameworks/libInspireFace.dylib
+    
+    QMAKE_POST_LINK += install_name_tool -change libInspireFace.dylib @rpath/libInspireFace.dylib $$OUT_PWD/$${TARGET}
+    QMAKE_POST_LINK += mkdir -p $$OUT_PWD/$${TARGET}.app/Contents/Frameworks/
+    QMAKE_POST_LINK += cp $$LIB_INSPIRE_FACE $$LIB_INSPIRE_FACE_DEST
+    QMAKE_POST_LINK += install_name_tool -id @rpath/libInspireFace.dylib $$LIB_INSPIRE_FACE_DEST
 }

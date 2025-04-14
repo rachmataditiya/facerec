@@ -7,6 +7,8 @@
 #include <cstring>
 #include <QFile>
 #include <QTextStream>
+#include <QTimer>
+#include <libpq-fe.h>
 
 FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager, 
                                                      SettingsManager* settingsManager,
@@ -16,12 +18,44 @@ FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager,
     , m_modelManager(modelManager)
     , m_settingsManager(settingsManager)
     , m_videoWidget(videoWidget)
+    , m_isInitialized(false)
+    , m_isRunning(false)
     , m_timer(new QTimer(this))
     , m_videoCapture(nullptr)
     , m_pgConn(nullptr)
-    , m_isInitialized(false)
-    , m_isRunning(false)
 {
+    // Konfigurasi Feature Hub
+    HFFeatureHubConfiguration config;
+    config.primaryKeyMode = HF_PK_MANUAL_INPUT;
+    config.enablePersistence = 0; // Disable persistence karena menggunakan PostgreSQL
+    config.persistenceDbPath = nullptr;
+    config.searchThreshold = 0.6f;
+    config.searchMode = HF_SEARCH_MODE_EXHAUSTIVE;
+    
+    HResult ret = HFFeatureHubDataEnable(config);
+    if (ret != HSUCCEED) {
+        qDebug() << "Failed to configure Feature Hub";
+    }
+
+    // Optimasi konversi similarity
+    HFSimilarityConverterConfig simConfig;
+    simConfig.threshold = 0.42f;
+    simConfig.middleScore = 0.6f;
+    simConfig.steepness = 8.0f;
+    simConfig.outputMin = 0.01f;
+    simConfig.outputMax = 1.0f;
+    
+    ret = HFUpdateCosineSimilarityConverter(simConfig);
+    if (ret != HSUCCEED) {
+        qDebug() << "Failed to update similarity converter config";
+    }
+
+    // Set threshold pencarian wajah
+    ret = HFFeatureHubFaceSearchThresholdSetting(0.6f);
+    if (ret != HSUCCEED) {
+        qDebug() << "Failed to set face search threshold";
+    }
+
     connect(m_timer, SIGNAL(timeout()), this, SLOT(processFrame()));
 }
 
@@ -102,11 +136,11 @@ PersonInfo FaceRecognitionController::searchFaceInDatabase(const QVector<float> 
     qDebug() << "Starting face search in database...";
     qDebug() << "Feature vector size:" << feature.size();
 
-    // Convert feature vector to PostgreSQL vector format
+    // Convert vector to string with higher precision
     QString vectorStr = "'[";
     for (int i = 0; i < feature.size(); ++i) {
         if (i > 0) vectorStr += ",";
-        vectorStr += QString::number(feature[i], 'f', 6);
+        vectorStr += QString::number(feature[i], 'f', 12); // Increased precision
     }
     vectorStr += "]'";
 
@@ -359,6 +393,7 @@ void FaceRecognitionController::processFrame()
 void FaceRecognitionController::processFrame(const cv::Mat &frame)
 {
     if (!m_isInitialized || !m_modelManager || !m_pgConn) {
+        qDebug() << "Controller not initialized or model not loaded";
         return;
     }
 
@@ -377,9 +412,10 @@ void FaceRecognitionController::processFrame(const cv::Mat &frame)
         return;
     }
 
-    // Detect faces
+    // Detect faces with additional flags
     HFMultipleFaceData results;
     memset(&results, 0, sizeof(HFMultipleFaceData));
+    
     ret = HFExecuteFaceTrack(m_modelManager->getSession(), streamHandle, &results);
     if (ret != HSUCCEED) {
         qDebug() << "Failed to execute face track";
@@ -387,15 +423,31 @@ void FaceRecognitionController::processFrame(const cv::Mat &frame)
         return;
     }
 
+    qDebug() << "Detected" << results.detectedNum << "faces";
+
     // Process each detected face
     for (int i = 0; i < results.detectedNum; i++) {
         // Skip if confidence is too low
-        if (results.detConfidence[i] < 0.3f) {
+        if (results.detConfidence[i] < 0.5f) {
+            qDebug() << "Skipping face" << i << "due to low confidence:" << results.detConfidence[i];
             continue;
         }
 
         // Skip if face is too small
-        if (results.rects[i].width < 50 || results.rects[i].height < 50) {
+        if (results.rects[i].width < 60 || results.rects[i].height < 60) {
+            qDebug() << "Skipping face" << i << "due to small size:" 
+                    << results.rects[i].width << "x" << results.rects[i].height;
+            continue;
+        }
+
+        // Validate coordinates
+        int x1 = std::max(0, std::min(results.rects[i].x, frame.cols - 1));
+        int y1 = std::max(0, std::min(results.rects[i].y, frame.rows - 1));
+        int x2 = std::max(0, std::min(results.rects[i].x + results.rects[i].width, frame.cols - 1));
+        int y2 = std::max(0, std::min(results.rects[i].y + results.rects[i].height, frame.rows - 1));
+
+        if (x2 <= x1 || y2 <= y1) {
+            qDebug() << "Skipping face" << i << "due to invalid coordinates";
             continue;
         }
 
@@ -404,6 +456,15 @@ void FaceRecognitionController::processFrame(const cv::Mat &frame)
         faceToken.size = results.tokens[i].size;
         faceToken.data = new unsigned char[faceToken.size];
         memcpy(faceToken.data, results.tokens[i].data, faceToken.size);
+
+        // Check face quality first
+        float qualityScore;
+        ret = HFFaceQualityDetect(m_modelManager->getSession(), faceToken, &qualityScore);
+        if (ret == HSUCCEED && qualityScore < 0.7f) {
+            qDebug() << "Skipping face" << i << "due to low quality score:" << qualityScore;
+            delete[] static_cast<unsigned char*>(faceToken.data);
+            continue;
+        }
 
         // Extract face feature
         HFFaceFeature feature;
@@ -414,7 +475,7 @@ void FaceRecognitionController::processFrame(const cv::Mat &frame)
         delete[] static_cast<unsigned char*>(faceToken.data);
 
         if (ret != HSUCCEED) {
-            qDebug() << "Failed to extract face feature";
+            qDebug() << "Failed to extract face feature for face" << i;
             continue;
         }
 
@@ -423,26 +484,32 @@ void FaceRecognitionController::processFrame(const cv::Mat &frame)
         if (feature.size > 0 && feature.data) {
             featureVec.resize(feature.size);
             memcpy(featureVec.data(), feature.data, feature.size * sizeof(float));
+        } else {
+            qDebug() << "Feature extraction menghasilkan data kosong.";
+            continue;
         }
 
-        // Search in database
+        // Search in database with higher precision
         PersonInfo personInfo = searchFaceInDatabase(featureVec);
-        if (!personInfo.id.isEmpty() && personInfo.distance < 0.3f) {
-            updateLastSeen(personInfo.id);
-            drawRecognitionResults(frame, personInfo.name, personInfo.distance, 
-                                cv::Rect(results.rects[i].x, results.rects[i].y, 
-                                        results.rects[i].width, results.rects[i].height),
-                                personInfo.memberId);
-        } else {
-            drawLowQualityFace(frame, cv::Rect(results.rects[i].x, results.rects[i].y, 
-                                             results.rects[i].width, results.rects[i].height));
+        if (personInfo.id.isEmpty() || personInfo.distance > 0.75) {
+            qDebug() << "No match found in database or distance too high:" << personInfo.distance;
+            continue;
         }
+
+        qDebug() << "Best match found:" << personInfo.name << "with distance:" << personInfo.distance;
+        
+        // Convert HFaceRect to cv::Rect
+        cv::Rect faceRect(
+            results.rects[i].x,
+            results.rects[i].y,
+            results.rects[i].width,
+            results.rects[i].height
+        );
+        
+        drawRecognitionResults(frame, personInfo.id, personInfo.distance, faceRect, personInfo.memberId);
     }
 
-    // Release resources
     HFReleaseImageStream(streamHandle);
-
-    // Display frame
     m_videoWidget->setFrame(frame);
 }
 
@@ -465,7 +532,7 @@ void FaceRecognitionController::updateLastSeen(const QString &personId)
 
 // Menggambar hasil recognition di atas frame
 void FaceRecognitionController::drawRecognitionResults(cv::Mat frame, const QString &personId, float distance, 
-                                                         const cv::Rect &faceRect, const QString &memberId)
+                                                     const cv::Rect &faceRect, const QString &memberId)
 {
     // Gambar rectangle wajah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 255, 0), 2);
@@ -475,8 +542,15 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat frame, const QStr
     if (personId == "Unknown") {
         labelLines.push_back("Unknown");
     } else {
-        // Nama sudah ada di hasil pencarian, tidak perlu query lagi
-        labelLines.push_back(personId.toStdString());
+        // Query nama dari database
+        QString query = QString("SELECT name FROM persons WHERE id = '%1'").arg(personId);
+        PGresult *res = PQexec(m_pgConn, query.toStdString().c_str());
+        if (PQresultStatus(res) == PGRES_TUPLES_OK && PQntuples(res) > 0) {
+            labelLines.push_back(PQgetvalue(res, 0, 0));
+        } else {
+            labelLines.push_back("Unknown");
+        }
+        PQclear(res);
     }
     
     if (!memberId.isEmpty())

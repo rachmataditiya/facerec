@@ -5,5 +5,20 @@
             "name": "Parkiran Depan",
             "url": "rstp://cam.arkana.app:5003"
         }
-    ]
+    ],
+    "modelParameters": {
+        "enable_recognition": 1,
+        "enable_liveness": 1,
+        "enable_mask_detect": 1,
+        "enable_face_attribute": 1,
+        "enable_face_quality": 1,
+        "enable_ir_liveness": 0,
+        "enable_interaction_liveness": 1,
+        "enable_detect_mode_landmark": 1
+    },
+    "detectionParameters": {
+        "face_detect_threshold": 0.7,
+        "track_mode_smooth_ratio": 0.7,
+        "filter_minimum_face_pixel_size": 60
+    }
 }
