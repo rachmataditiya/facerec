@@ -47,14 +47,16 @@ signals:
 
 private slots:
     void processFrame();
+    void processFrame(const cv::Mat &frame);
 
 private:
-    void drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
+    void drawRecognitionResults(cv::Mat frame, const QString &personId, float distance, 
                                const cv::Rect &faceRect, const QString &memberId);
-    void drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect);
+    void drawLowQualityFace(cv::Mat frame, const cv::Rect &faceRect);
     PersonInfo searchFaceInDatabase(const QVector<float> &feature);
     bool connectToDatabase();
     void disconnectFromDatabase();
+    void updateLastSeen(const QString &personId);
 
     ModelManager* m_modelManager;
     SettingsManager* m_settingsManager;

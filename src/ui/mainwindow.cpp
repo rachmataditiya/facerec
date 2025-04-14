@@ -100,8 +100,15 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    if (m_activeController) {
+        if (ui->enableRecognitionCheck->isChecked()) {
+            static_cast<FaceRecognitionController*>(m_activeController)->shutdown();
+        } else {
+            static_cast<FaceDetectionController*>(m_activeController)->stopDetection();
+        }
+        delete m_activeController;
+    }
     delete ui;
-    delete m_activeController;
 }
 
 void MainWindow::updateStreamComboBox()

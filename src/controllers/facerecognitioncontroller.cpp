@@ -22,7 +22,7 @@ FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager,
     , m_isInitialized(false)
     , m_isRunning(false)
 {
-    connect(m_timer, &QTimer::timeout, this, &FaceRecognitionController::processFrame);
+    connect(m_timer, SIGNAL(timeout()), this, SLOT(processFrame()));
 }
 
 // Destructor
@@ -56,6 +56,9 @@ void FaceRecognitionController::shutdown()
     qDebug() << "Shutting down face recognition controller...";
     stopRecognition();
     disconnectFromDatabase();
+    if (m_modelManager) {
+        m_modelManager->unloadModel();
+    }
     m_isInitialized = false;
     qDebug() << "Face recognition controller shutdown complete";
 }
@@ -96,16 +99,23 @@ PersonInfo FaceRecognitionController::searchFaceInDatabase(const QVector<float> 
         return result;
     }
 
+    qDebug() << "Starting face search in database...";
+    qDebug() << "Feature vector size:" << feature.size();
+
     // Convert feature vector to PostgreSQL vector format
-    QString vectorStr = "ARRAY[";
+    QString vectorStr = "'[";
     for (int i = 0; i < feature.size(); ++i) {
         if (i > 0) vectorStr += ",";
-        vectorStr += QString::number(feature[i]);
+        vectorStr += QString::number(feature[i], 'f', 6);
     }
-    vectorStr += "]";
+    vectorStr += "]'";
 
-    // Execute the search_face function
-    QString query = QString("SELECT * FROM search_person_embedding(%1)").arg(vectorStr);
+    qDebug() << "Executing search query with vector:" << vectorStr;
+
+    // Execute the search_person_embedding function
+    QString query = QString("SELECT * FROM search_person_embedding(%1::vector)").arg(vectorStr);
+    qDebug() << "Query:" << query;
+    
     PGresult *res = PQexec(m_pgConn, query.toStdString().c_str());
 
     if (PQresultStatus(res) != PGRES_TUPLES_OK) {
@@ -114,11 +124,22 @@ PersonInfo FaceRecognitionController::searchFaceInDatabase(const QVector<float> 
         return result;
     }
 
-    if (PQntuples(res) > 0) {
-        result.id = QString::fromUtf8(PQgetvalue(res, 0, 0));
-        result.name = QString::fromUtf8(PQgetvalue(res, 0, 2));
-        result.memberId = QString::fromUtf8(PQgetvalue(res, 0, 3));
-        result.distance = QString::fromUtf8(PQgetvalue(res, 0, 5)).toFloat();
+    int numRows = PQntuples(res);
+    qDebug() << "Query returned" << numRows << "rows";
+
+    if (numRows > 0) {
+        result.id = QString::fromUtf8(PQgetvalue(res, 0, 1));        // person_id
+        result.name = QString::fromUtf8(PQgetvalue(res, 0, 2));      // name
+        result.memberId = QString::fromUtf8(PQgetvalue(res, 0, 3));  // member_id
+        result.distance = QString::fromUtf8(PQgetvalue(res, 0, 5)).toFloat(); // distance
+
+        qDebug() << "Found match:";
+        qDebug() << "  Person ID:" << result.id;
+        qDebug() << "  Name:" << result.name;
+        qDebug() << "  Member ID:" << result.memberId;
+        qDebug() << "  Distance:" << result.distance;
+    } else {
+        qDebug() << "No matches found in database";
     }
 
     PQclear(res);
@@ -332,7 +353,16 @@ void FaceRecognitionController::processFrame()
         return;
     }
 
-    // Konversi frame ke format InspireFace
+    processFrame(frame);
+}
+
+void FaceRecognitionController::processFrame(const cv::Mat &frame)
+{
+    if (!m_isInitialized || !m_modelManager || !m_pgConn) {
+        return;
+    }
+
+    // Convert frame to HFImageStream
     HFImageData imageData;
     imageData.data = frame.data;
     imageData.width = frame.cols;
@@ -340,7 +370,6 @@ void FaceRecognitionController::processFrame()
     imageData.format = HF_STREAM_BGR;
     imageData.rotation = HF_CAMERA_ROTATION_0;
 
-    // Buat image stream
     HFImageStream streamHandle;
     HResult ret = HFCreateImageStream(&imageData, &streamHandle);
     if (ret != HSUCCEED) {
@@ -348,94 +377,94 @@ void FaceRecognitionController::processFrame()
         return;
     }
 
-    // Deteksi wajah
+    // Detect faces
     HFMultipleFaceData results;
     memset(&results, 0, sizeof(HFMultipleFaceData));
     ret = HFExecuteFaceTrack(m_modelManager->getSession(), streamHandle, &results);
-    
-    if (ret == HSUCCEED) {
-        qDebug() << "Faces detected:" << results.detectedNum;
-        for (int i = 0; i < results.detectedNum; i++) {
-            // Lewati wajah dengan confidence rendah
-            if (results.detConfidence[i] < 0.7) {
-                qDebug() << "Skipping face with low confidence:" << results.detConfidence[i];
-                cv::Rect faceRect(
-                    results.rects[i].x,
-                    results.rects[i].y,
-                    results.rects[i].width,
-                    results.rects[i].height
-                );
-                drawLowQualityFace(frame, faceRect);
-                continue;
-            }
-
-            // Lewati wajah yang terlalu kecil
-            if (results.rects[i].width < 60 || results.rects[i].height < 60) {
-                qDebug() << "Skipping face that is too small:" 
-                         << results.rects[i].width << "x" << results.rects[i].height;
-                continue;
-            }
-
-            // Buat token wajah
-            HFFaceBasicToken faceToken;
-            faceToken.size = results.tokens[i].size;
-            faceToken.data = new unsigned char[faceToken.size];
-            memcpy(faceToken.data, results.tokens[i].data, faceToken.size);
-
-            // Ekstraksi fitur untuk wajah tersebut
-            HFFaceFeature feature;
-            feature.size = 0;
-            feature.data = nullptr;
-
-            ret = HFFaceFeatureExtract(m_modelManager->getSession(), streamHandle, faceToken, &feature);
-            delete[] static_cast<unsigned char*>(faceToken.data);
-
-            if (ret != HSUCCEED) {
-                qDebug() << "Failed to extract features. Error code:" << ret;
-                continue;
-            }
-
-            // Konversi HFFaceFeature ke QVector<float>
-            QVector<float> featureVec;
-            if (feature.size > 0 && feature.data) {
-                featureVec.resize(feature.size);
-                memcpy(featureVec.data(), feature.data, feature.size * sizeof(float));
-            } else {
-                qDebug() << "Feature extraction returned empty data";
-                continue;
-            }
-
-            // Search in PostgreSQL database
-            PersonInfo personInfo = searchFaceInDatabase(featureVec);
-            
-            // Dapatkan koordinat rectangle wajah
-            cv::Rect faceRect(
-                results.rects[i].x,
-                results.rects[i].y,
-                results.rects[i].width,
-                results.rects[i].height
-            );
-
-            // Gambar hasil face recognition
-            drawRecognitionResults(frame, 
-                                 personInfo.id.isEmpty() ? "Unknown" : personInfo.id,
-                                 personInfo.distance,
-                                 faceRect,
-                                 personInfo.memberId);
-        }
-    } else {
-        qDebug() << "Face detection failed. Error code:" << ret;
+    if (ret != HSUCCEED) {
+        qDebug() << "Failed to execute face track";
+        HFReleaseImageStream(streamHandle);
+        return;
     }
 
-    // Lepaskan image stream
+    // Process each detected face
+    for (int i = 0; i < results.detectedNum; i++) {
+        // Skip if confidence is too low
+        if (results.detConfidence[i] < 0.3f) {
+            continue;
+        }
+
+        // Skip if face is too small
+        if (results.rects[i].width < 50 || results.rects[i].height < 50) {
+            continue;
+        }
+
+        // Create face token
+        HFFaceBasicToken faceToken;
+        faceToken.size = results.tokens[i].size;
+        faceToken.data = new unsigned char[faceToken.size];
+        memcpy(faceToken.data, results.tokens[i].data, faceToken.size);
+
+        // Extract face feature
+        HFFaceFeature feature;
+        feature.size = 0;
+        feature.data = nullptr;
+
+        ret = HFFaceFeatureExtract(m_modelManager->getSession(), streamHandle, faceToken, &feature);
+        delete[] static_cast<unsigned char*>(faceToken.data);
+
+        if (ret != HSUCCEED) {
+            qDebug() << "Failed to extract face feature";
+            continue;
+        }
+
+        // Convert feature to QVector
+        QVector<float> featureVec;
+        if (feature.size > 0 && feature.data) {
+            featureVec.resize(feature.size);
+            memcpy(featureVec.data(), feature.data, feature.size * sizeof(float));
+        }
+
+        // Search in database
+        PersonInfo personInfo = searchFaceInDatabase(featureVec);
+        if (!personInfo.id.isEmpty() && personInfo.distance < 0.3f) {
+            updateLastSeen(personInfo.id);
+            drawRecognitionResults(frame, personInfo.name, personInfo.distance, 
+                                cv::Rect(results.rects[i].x, results.rects[i].y, 
+                                        results.rects[i].width, results.rects[i].height),
+                                personInfo.memberId);
+        } else {
+            drawLowQualityFace(frame, cv::Rect(results.rects[i].x, results.rects[i].y, 
+                                             results.rects[i].width, results.rects[i].height));
+        }
+    }
+
+    // Release resources
     HFReleaseImageStream(streamHandle);
 
-    // Tampilkan frame ke video widget
+    // Display frame
     m_videoWidget->setFrame(frame);
 }
 
+void FaceRecognitionController::updateLastSeen(const QString &personId)
+{
+    if (!m_pgConn || PQstatus(m_pgConn) != CONNECTION_OK) {
+        qDebug() << "Database connection is not available";
+        return;
+    }
+
+    QString query = QString("UPDATE persons SET last_seen = NOW() WHERE id = '%1'").arg(personId);
+    PGresult *res = PQexec(m_pgConn, query.toStdString().c_str());
+
+    if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+        qDebug() << "Failed to update last seen:" << PQerrorMessage(m_pgConn);
+    }
+
+    PQclear(res);
+}
+
 // Menggambar hasil recognition di atas frame
-void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
+void FaceRecognitionController::drawRecognitionResults(cv::Mat frame, const QString &personId, float distance, 
                                                          const cv::Rect &faceRect, const QString &memberId)
 {
     // Gambar rectangle wajah
@@ -443,7 +472,13 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QSt
 
     // Buat label yang akan ditampilkan
     std::vector<std::string> labelLines;
-    labelLines.push_back(personId == "Unknown" ? "Unknown" : personId.toStdString());
+    if (personId == "Unknown") {
+        labelLines.push_back("Unknown");
+    } else {
+        // Nama sudah ada di hasil pencarian, tidak perlu query lagi
+        labelLines.push_back(personId.toStdString());
+    }
+    
     if (!memberId.isEmpty())
         labelLines.push_back("ID: " + memberId.toStdString());
     labelLines.push_back(QString("Score: %1%").arg(int((1.0 - distance) * 100)).toStdString());
@@ -466,7 +501,7 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QSt
 }
 
 // Menggambar tanda untuk wajah berkualitas rendah
-void FaceRecognitionController::drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect)
+void FaceRecognitionController::drawLowQualityFace(cv::Mat frame, const cv::Rect &faceRect)
 {
     // Gambar rectangle dengan warna merah untuk wajah berkualitas rendah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 0, 255), 2);
