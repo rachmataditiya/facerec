@@ -9,9 +9,18 @@
 #include <QDebug>
 #include <opencv2/opencv.hpp>
 #include <inspireface.h>
+#include <libpq-fe.h>
 #include "../models/modelmanager.h"
 #include "../models/settingsmanager.h"
 #include "../ui/videowidget.h"
+
+// Structure to hold person information from PostgreSQL
+struct PersonInfo {
+    QString id;
+    QString name;
+    QString memberId;
+    float distance;
+};
 
 class FaceRecognitionController : public QObject
 {
@@ -43,12 +52,16 @@ private:
     void drawRecognitionResults(cv::Mat &frame, const QString &personId, float distance, 
                                const cv::Rect &faceRect, const QString &memberId);
     void drawLowQualityFace(cv::Mat &frame, const cv::Rect &faceRect);
+    PersonInfo searchFaceInDatabase(const QVector<float> &feature);
+    bool connectToDatabase();
+    void disconnectFromDatabase();
 
     ModelManager* m_modelManager;
     SettingsManager* m_settingsManager;
     VideoWidget* m_videoWidget;
     QTimer* m_timer;
     cv::VideoCapture* m_videoCapture;
+    PGconn* m_pgConn;
     bool m_isInitialized;
     bool m_isRunning;
 };

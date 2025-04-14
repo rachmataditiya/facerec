@@ -23,7 +23,6 @@ SOURCES += \
     src/controllers/facerecognitioncontroller.cpp \
     src/models/modelmanager.cpp \
     src/models/settingsmanager.cpp \
-    src/models/faissmanager.cpp \
     src/ui/mainwindow.cpp \
     src/ui/videowidget.cpp
 
@@ -32,7 +31,6 @@ HEADERS += \
     src/controllers/facerecognitioncontroller.h \
     src/models/modelmanager.h \
     src/models/settingsmanager.h \
-    src/models/faissmanager.h \
     src/ui/mainwindow.h \
     src/ui/videowidget.h
 
@@ -71,8 +69,7 @@ LIBS += \
     -L$$PWD/InspireFace/lib \
     -lInspireFace \
     -L/opt/homebrew/lib \
-    -lpq \
-    -lfaiss
+    -lpq
 
 # Mac specific configurations
 macx {
@@ -83,7 +80,6 @@ macx {
     # PostgreSQL configuration for macOS
     INCLUDEPATH += \
         /opt/homebrew/Cellar/postgresql@17/17.4_1/include \
-        /opt/homebrew/Cellar/faiss/1.10.0/include \
         /opt/homebrew/Cellar/libpq/17.4_1/include
     LIBS += -L/opt/homebrew/Cellar/libpq/17.4_1/lib
 }

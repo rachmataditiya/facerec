@@ -18,6 +18,7 @@ FaceRecognitionController::FaceRecognitionController(ModelManager* modelManager,
     , m_videoWidget(videoWidget)
     , m_timer(new QTimer(this))
     , m_videoCapture(nullptr)
+    , m_pgConn(nullptr)
     , m_isInitialized(false)
     , m_isRunning(false)
 {
@@ -38,6 +39,11 @@ bool FaceRecognitionController::initialize()
         return true;
     }
 
+    if (!connectToDatabase()) {
+        qDebug() << "Failed to connect to PostgreSQL database";
+        return false;
+    }
+
     qDebug() << "Initializing face recognition controller...";
     m_isInitialized = true;
     qDebug() << "Face recognition controller initialized successfully";
@@ -48,8 +54,75 @@ bool FaceRecognitionController::initialize()
 void FaceRecognitionController::shutdown()
 {
     qDebug() << "Shutting down face recognition controller...";
+    stopRecognition();
+    disconnectFromDatabase();
     m_isInitialized = false;
     qDebug() << "Face recognition controller shutdown complete";
+}
+
+bool FaceRecognitionController::connectToDatabase()
+{
+    QString connStr = QString(
+        "host='%1' port='%2' dbname='%3' user='%4' password='%5'")
+        .arg(m_settingsManager->getPostgresHost())
+        .arg(m_settingsManager->getPostgresPort())
+        .arg(m_settingsManager->getPostgresDatabase())
+        .arg(m_settingsManager->getPostgresUsername())
+        .arg(m_settingsManager->getPostgresPassword());
+
+    m_pgConn = PQconnectdb(connStr.toStdString().c_str());
+    if (PQstatus(m_pgConn) != CONNECTION_OK) {
+        qDebug() << "Connection to database failed:" << PQerrorMessage(m_pgConn);
+        PQfinish(m_pgConn);
+        m_pgConn = nullptr;
+        return false;
+    }
+    return true;
+}
+
+void FaceRecognitionController::disconnectFromDatabase()
+{
+    if (m_pgConn) {
+        PQfinish(m_pgConn);
+        m_pgConn = nullptr;
+    }
+}
+
+PersonInfo FaceRecognitionController::searchFaceInDatabase(const QVector<float> &feature)
+{
+    PersonInfo result;
+    if (!m_pgConn || PQstatus(m_pgConn) != CONNECTION_OK) {
+        qDebug() << "Database connection is not available";
+        return result;
+    }
+
+    // Convert feature vector to PostgreSQL vector format
+    QString vectorStr = "ARRAY[";
+    for (int i = 0; i < feature.size(); ++i) {
+        if (i > 0) vectorStr += ",";
+        vectorStr += QString::number(feature[i]);
+    }
+    vectorStr += "]";
+
+    // Execute the search_face function
+    QString query = QString("SELECT * FROM search_person_embedding(%1)").arg(vectorStr);
+    PGresult *res = PQexec(m_pgConn, query.toStdString().c_str());
+
+    if (PQresultStatus(res) != PGRES_TUPLES_OK) {
+        qDebug() << "Query failed:" << PQerrorMessage(m_pgConn);
+        PQclear(res);
+        return result;
+    }
+
+    if (PQntuples(res) > 0) {
+        result.id = QString::fromUtf8(PQgetvalue(res, 0, 0));
+        result.name = QString::fromUtf8(PQgetvalue(res, 0, 2));
+        result.memberId = QString::fromUtf8(PQgetvalue(res, 0, 3));
+        result.distance = QString::fromUtf8(PQgetvalue(res, 0, 5)).toFloat();
+    }
+
+    PQclear(res);
+    return result;
 }
 
 // Fungsi untuk melakukan face recognition dari QImage
@@ -142,19 +215,15 @@ QString FaceRecognitionController::recognizeFace(const QImage &image)
         return QString();
     }
 
-    // Pencarian di index FAISS menggunakan fitur yang telah dikonversi.
-    // Fungsi recognizeFace() pada FaissManager mengembalikan QPair<QString, float>.
-    QPair<QString, float> recognitionResult = m_faissManager->recognizeFace(featureVec);
-    if (recognitionResult.first.isEmpty()) {
-        qDebug() << "No match found in database";
+    // Search in PostgreSQL database
+    PersonInfo personInfo = searchFaceInDatabase(featureVec);
+    if (personInfo.id.isEmpty() || personInfo.distance > 0.75) {
+        qDebug() << "No match found in database or distance too high:" << personInfo.distance;
         return QString();
     }
-    if (recognitionResult.second < 0.75) {
-        qDebug() << "Best match similarity too low:" << recognitionResult.second;
-        return QString();
-    }
-    qDebug() << "Best match found:" << recognitionResult.first << "with similarity:" << recognitionResult.second;
-    return recognitionResult.first;
+
+    qDebug() << "Best match found:" << personInfo.name << "with distance:" << personInfo.distance;
+    return personInfo.id;
 }
 
 // Memulai proses face recognition (webcam atau RTSP)
@@ -336,26 +405,9 @@ void FaceRecognitionController::processFrame()
                 continue;
             }
 
-            // Pencarian wajah menggunakan FAISS manager
-            QPair<QString, float> recognitionResult = m_faissManager->recognizeFace(featureVec);
+            // Search in PostgreSQL database
+            PersonInfo personInfo = searchFaceInDatabase(featureVec);
             
-            // Siapkan atribut wajah
-            QString memberId = "";
-            QString personId = "";
-            float distance = 1.0f;
-
-            if (!recognitionResult.first.isEmpty()) {
-                personId = recognitionResult.first;
-                distance = recognitionResult.second;
-                qDebug() << "Face recognized:" << personId << "with distance:" << distance;
-
-                // Dapatkan info tambahan dari FAISS manager
-                PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
-                memberId = personInfo.memberId;
-            } else {
-                qDebug() << "No match found for face";
-            }
-
             // Dapatkan koordinat rectangle wajah
             cv::Rect faceRect(
                 results.rects[i].x,
@@ -366,10 +418,10 @@ void FaceRecognitionController::processFrame()
 
             // Gambar hasil face recognition
             drawRecognitionResults(frame, 
-                                   recognitionResult.first.isEmpty() ? "Unknown" : personId,
-                                   distance,
-                                   faceRect,
-                                   memberId);
+                                 personInfo.id.isEmpty() ? "Unknown" : personInfo.id,
+                                 personInfo.distance,
+                                 faceRect,
+                                 personInfo.memberId);
         }
     } else {
         qDebug() << "Face detection failed. Error code:" << ret;
@@ -389,22 +441,17 @@ void FaceRecognitionController::drawRecognitionResults(cv::Mat &frame, const QSt
     // Gambar rectangle wajah
     cv::rectangle(frame, faceRect, cv::Scalar(0, 255, 0), 2);
 
-    // Ambil info person dari FAISS manager
-    PersonInfo personInfo = m_faissManager->getPersonInfo(personId);
-    QString name = personInfo.name;
-    QString displayMemberId = personInfo.memberId.isEmpty() ? memberId : personInfo.memberId;
-
     // Buat label yang akan ditampilkan
     std::vector<std::string> labelLines;
-    labelLines.push_back(name.isEmpty() ? "Unknown" : name.toStdString());
-    if (!displayMemberId.isEmpty())
-        labelLines.push_back("ID: " + displayMemberId.toStdString());
+    labelLines.push_back(personId == "Unknown" ? "Unknown" : personId.toStdString());
+    if (!memberId.isEmpty())
+        labelLines.push_back("ID: " + memberId.toStdString());
     labelLines.push_back(QString("Score: %1%").arg(int((1.0 - distance) * 100)).toStdString());
 
     int font = cv::FONT_HERSHEY_SIMPLEX;
     double fontScale = 0.8;
     int thickness = 3;
-    cv::Scalar color = (name.isEmpty() || name == "Unknown") ? cv::Scalar(0, 0, 255) : cv::Scalar(255, 255, 255);
+    cv::Scalar color = (personId == "Unknown") ? cv::Scalar(0, 0, 255) : cv::Scalar(255, 255, 255);
     int verticalOffset = 90;
     int lineHeight = 30;
 

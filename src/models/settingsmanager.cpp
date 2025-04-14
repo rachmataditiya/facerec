@@ -33,13 +33,8 @@ SettingsManager::~SettingsManager()
 void SettingsManager::initializeDefaultSettings()
 {
     QString homePath = QDir::homePath();
-    QString faissCachePath = QDir(homePath).filePath(".facerec/faiss_cache");
-    
-    // Create faiss cache directory if it doesn't exist
-    QDir().mkpath(faissCachePath);
     
     m_settings["modelPath"] = QDir(homePath).filePath(".inspireface/models");
-    m_settings["faissCachePath"] = faissCachePath;
     
     // PostgreSQL settings with default values
     QJsonObject defaultPostgresSettings;
@@ -138,10 +133,6 @@ bool SettingsManager::loadSettings()
             }
         }
         loadedSettings["detectionParameters"] = loadedParams;
-    }
-    
-    if (!loadedSettings.contains("faissCachePath")) {
-        loadedSettings["faissCachePath"] = m_settings["faissCachePath"];
     }
 
     // Load PostgreSQL settings
@@ -282,17 +273,6 @@ void SettingsManager::setDetectionParameters(const QJsonObject &params)
 QJsonObject SettingsManager::getDetectionParameters() const
 {
     return m_settings["detectionParameters"].toObject();
-}
-
-QString SettingsManager::getFaissCachePath() const
-{
-    return m_settings["faissCachePath"].toString();
-}
-
-void SettingsManager::setFaissCachePath(const QString &path)
-{
-    m_settings["faissCachePath"] = path;
-    saveSettings();
 }
 
 void SettingsManager::setPostgresSettings(const QJsonObject &settings)

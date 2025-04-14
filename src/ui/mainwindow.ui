@@ -806,8 +806,6 @@
          </widget>
         </item>
         <item>
-        </item>
-        <item>
          <widget class="QPushButton" name="saveAllSettingsButton">
           <property name="minimumSize">
            <size>

@@ -30,9 +30,6 @@ public:
     void setDetectionParameters(const QJsonObject &params);
     QJsonObject getDetectionParameters() const;
 
-    // Faiss settings
-    QString getFaissCachePath() const;
-    void setFaissCachePath(const QString &path);
 
     // PostgreSQL settings
     void setPostgresSettings(const QJsonObject &settings);

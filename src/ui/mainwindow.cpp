@@ -45,6 +45,12 @@ MainWindow::MainWindow(QWidget *parent)
         }
     }
     
+    // Fix the empty addWidget() call by adding a placeholder widget
+    if (ui->settingsTabLayout) {
+        QWidget *placeholderWidget = new QWidget(this);
+        ui->settingsTabLayout->addWidget(placeholderWidget);
+    }
+    
     updateStreamComboBox();
     updateStreamTable();
     
@@ -373,10 +379,6 @@ void MainWindow::onDetectionParameterChanged()
     }
 }
 
-void MainWindow::loadFaissSettings()
-{
-    ui->faissCachePathEdit->setText(m_settingsManager->getFaissCachePath());
-}
 
 void MainWindow::loadDatabaseSettings()
 {
@@ -392,15 +394,6 @@ void MainWindow::loadDatabaseSettings()
     QJsonObject supabaseSettings = m_settingsManager->getSupabaseSettings();
     ui->supabaseUrlEdit->setText(supabaseSettings["url"].toString());
     ui->supabaseKeyEdit->setText(supabaseSettings["key"].toString());
-}
-
-void MainWindow::onFaissCachePathButtonClicked()
-{
-    QString dir = QFileDialog::getExistingDirectory(this, "Select Faiss Cache Directory",
-                                                  ui->faissCachePathEdit->text());
-    if (!dir.isEmpty()) {
-        ui->faissCachePathEdit->setText(dir);
-    }
 }
 
 void MainWindow::onSaveAllSettingsButtonClicked()
@@ -419,10 +412,6 @@ void MainWindow::onSaveAllSettingsButtonClicked()
     supabaseSettings["url"] = ui->supabaseUrlEdit->text();
     supabaseSettings["key"] = ui->supabaseKeyEdit->text();
     m_settingsManager->setSupabaseSettings(supabaseSettings);
-
-    // Save Faiss settings
-    QString cachePath = ui->faissCachePathEdit->text();
-    m_settingsManager->setFaissCachePath(cachePath);
     
     // Save all settings to file
     m_settingsManager->saveSettings();
